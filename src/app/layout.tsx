@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import "@/styles/globals.css";
 
@@ -18,7 +19,7 @@ export const viewport = {
   themeColor: "#2563EB",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.className}>
       <body className="min-h-dvh">{children}</body>
