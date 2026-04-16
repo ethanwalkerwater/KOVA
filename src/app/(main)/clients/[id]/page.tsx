@@ -1,4 +1,6 @@
-import { StatusBar } from "@/components/ui";
+import { getMockContact } from "@/lib/mock-data";
+import { notFound } from "next/navigation";
+import { ContactDetailScreen } from "./ContactDetailScreen";
 
 export default async function ContactDetailPage({
   params,
@@ -6,12 +8,7 @@ export default async function ContactDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return (
-    <div>
-      <StatusBar />
-      <div className="px-5 py-4">
-        <p className="text-fg-muted text-sm">Contact ID: {id}</p>
-      </div>
-    </div>
-  );
+  const contact = getMockContact(id);
+  if (!contact) notFound();
+  return <ContactDetailScreen contact={contact} />;
 }
