@@ -1121,8 +1121,8 @@ export const mockContacts: Contact[] = [
     tags: ["High Intent", "Decision Maker", "Technical Buyer"],
     source: "voice",
     last_interaction_at: "2026-04-10T09:00:00Z",
-    next_followup_at: "2026-04-18T09:00:00Z",
-    followup_reason: "Send revised phased-pricing proposal before Friday deadline",
+    next_followup_at: "2026-04-16T09:00:00Z",
+    followup_reason: "Proposal sent 4 days ago — awaiting feedback on revised terms",
     company_industry: "AI/SaaS",
     company_size: "105,000 employees",
     company_stage: "Series B",
@@ -1130,7 +1130,7 @@ export const mockContacts: Contact[] = [
     company_description:
       "NovaTech develops enterprise AI tooling for manufacturing supply chains. Flagship product NovaSuite integrates with SAP and Oracle systems.",
     deal_value: 120000,
-    deal_currency: "USD",
+    deal_currency: "CNY",
     deal_probability: 75,
     expected_close_date: "2026-05-15T00:00:00Z",
     ai_summary:
@@ -1165,7 +1165,7 @@ export const mockContacts: Contact[] = [
     company_description:
       "Synapse Labs develops AI-powered compliance and regulatory reporting tools for mid-size banks and credit unions across Southeast Asia.",
     deal_value: 45000,
-    deal_currency: "USD",
+    deal_currency: "SGD",
     deal_probability: 55,
     expected_close_date: "2026-04-30T00:00:00Z",
     ai_summary:
@@ -1235,7 +1235,7 @@ export const mockContacts: Contact[] = [
     company_description:
       "CloudScale (HKEX: 9988) is a publicly listed cloud infrastructure company providing managed cloud, CDN, and enterprise connectivity services across Asia.",
     deal_value: 200000,
-    deal_currency: "USD",
+    deal_currency: "HKD",
     deal_probability: 20,
     expected_close_date: "2026-09-30T00:00:00Z",
     ai_summary:
@@ -1331,8 +1331,8 @@ export const mockContacts: Contact[] = [
     tags: ["High Intent", "Channel Partner"],
     source: "voice",
     last_interaction_at: "2026-04-12T14:30:00Z",
-    next_followup_at: "2026-04-17T09:00:00Z",
-    followup_reason: "Partnership agreement review call scheduled — she expects our draft and Singapore customer list",
+    next_followup_at: "2026-04-15T09:00:00Z",
+    followup_reason: "Overdue: conference follow-up promised within 2 weeks",
     company_industry: "Enterprise SaaS",
     company_size: "230 employees",
     company_stage: "Series B",
@@ -1340,7 +1340,7 @@ export const mockContacts: Contact[] = [
     company_description:
       "TechBridge India builds workflow automation and ERP integration tools for mid-market Indian enterprises. Deep partnerships with Tata Group and Mahindra.",
     deal_value: 60000,
-    deal_currency: "USD",
+    deal_currency: "INR",
     deal_probability: 60,
     expected_close_date: "2026-04-30T00:00:00Z",
     ai_summary:
