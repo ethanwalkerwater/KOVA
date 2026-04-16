@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils/cn";
 const VARIANTS = {
   "high-intent": "bg-accent-green-light text-accent-green",
   connected: "bg-accent-light text-accent",
-  "follow-up": "bg-orange-50 text-accent-orange",
+  "follow-up": "bg-accent-orange-light text-accent-orange",
   "new-lead": "bg-surface-secondary text-fg-secondary border border-border",
   engaged: "bg-accent-light text-accent",
-  negotiating: "bg-orange-50 text-accent-orange",
+  negotiating: "bg-accent-orange-light text-accent-orange",
   closed: "bg-accent-green-light text-accent-green",
   dormant: "bg-surface-secondary text-fg-muted",
   default: "bg-surface-secondary text-fg-secondary",

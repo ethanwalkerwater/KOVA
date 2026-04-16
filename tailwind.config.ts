@@ -10,6 +10,7 @@ const config: Config = {
         "accent-green": "#16A34A",
         "accent-green-light": "#F0FDF4",
         "accent-orange": "#EA580C",
+        "accent-orange-light": "#FFF7ED",
         border: "#E5E5E5",
         "border-light": "#F0F0F0",
         "fg-primary": "#1A1A1A",

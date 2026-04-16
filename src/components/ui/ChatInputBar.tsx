@@ -50,8 +50,11 @@ export function ChatInputBar({
         {isVoiceMode ? (
           <button
             className="flex-1 flex items-center justify-center h-full rounded-[22px] bg-surface-secondary px-3.5"
+            onMouseDown={onVoiceStart}
+            onMouseUp={onVoiceEnd}
             onTouchStart={onVoiceStart}
             onTouchEnd={onVoiceEnd}
+            aria-label="Hold to record voice"
           >
             <span className="text-fg-muted text-sm">Hold to talk</span>
           </button>
