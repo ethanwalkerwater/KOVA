@@ -7,37 +7,12 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Section } from "@/types/section";
 import { getSectionIcon, getSectionColor } from "@/lib/markdown/sections";
 import { cn } from "@/lib/utils/cn";
+import { formatRelativeTime } from "@/lib/utils/date";
 
 interface SectionRendererProps {
   section: Section;
   defaultExpanded?: boolean;
   className?: string;
-}
-
-function formatRelativeTime(isoString: string): string {
-  const now = Date.now();
-  const then = new Date(isoString).getTime();
-  const diffMs = now - then;
-
-  if (diffMs < 0) return "just now";
-
-  const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return `${diffSec}s ago`;
-
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 30) return `${diffDay}d ago`;
-
-  const diffMo = Math.floor(diffDay / 30);
-  if (diffMo < 12) return `${diffMo}mo ago`;
-
-  const diffYr = Math.floor(diffMo / 12);
-  return `${diffYr}y ago`;
 }
 
 export function SectionRenderer({
@@ -62,6 +37,7 @@ export function SectionRenderer({
         type="button"
         className="flex w-full items-center justify-between"
         onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
       >
         {/* Left: icon + title */}
         <div className="flex items-center gap-2">
@@ -98,7 +74,7 @@ export function SectionRenderer({
       {expanded && (
         <>
           {/* Regeneration timestamp */}
-          <p className="mt-1 text-fg-muted text-xs">
+          <p className="mt-1 text-fg-muted text-xs" suppressHydrationWarning>
             Updated · {formatRelativeTime(section.regenerated_at)}
           </p>
 

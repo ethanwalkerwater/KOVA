@@ -15,6 +15,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { Interaction, InteractionType } from "@/types/interaction";
 import { cn } from "@/lib/utils/cn";
+import { formatDate } from "@/lib/utils/date";
 
 interface InteractionTimelineProps {
   interactions: Interaction[];
@@ -79,15 +80,6 @@ const TYPE_META: Record<InteractionType, TypeMeta> = {
     label: "Import",
   },
 };
-
-function formatDate(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 function truncate(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
