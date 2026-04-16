@@ -52,6 +52,7 @@ export function ChatInputBar({
             className="flex-1 flex items-center justify-center h-full rounded-[22px] bg-surface-secondary px-3.5"
             onMouseDown={onVoiceStart}
             onMouseUp={onVoiceEnd}
+            onMouseLeave={onVoiceEnd}
             onTouchStart={onVoiceStart}
             onTouchEnd={onVoiceEnd}
             aria-label="Hold to record voice"
