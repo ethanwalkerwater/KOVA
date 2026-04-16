@@ -1,8 +1,5 @@
 import type { ReactNode } from "react";
-import { Inter } from "next/font/google";
 import "@/styles/globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "Kova",
@@ -21,8 +18,17 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={inter.className}>
-      <body className="min-h-dvh">{children}</body>
+    <html lang="en">
+      <head>
+        {/* Inter loaded via CDN — Tailwind font-sans fallback ensures layout stability */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="min-h-dvh font-sans">{children}</body>
     </html>
   );
 }
