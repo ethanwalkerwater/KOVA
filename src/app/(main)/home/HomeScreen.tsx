@@ -57,15 +57,21 @@ interface HomeScreenProps {
 }
 
 export function HomeScreen({ suggestions }: HomeScreenProps) {
+  const today = new Date();
+  const dayName = today.toLocaleDateString("en-US", { weekday: "long" });
+  const dateStr = today.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+  const hour = today.getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
   return (
     <div className="flex flex-col">
       <StatusBar />
 
       {/* Header */}
       <div className="px-5 pt-2 pb-4">
-        <h1 className="text-fg-primary font-bold text-2xl">Good morning 👋</h1>
-        <p className="text-fg-muted text-sm mt-0.5">
-          Wednesday, April 16 · {suggestions.length} follow-up{suggestions.length !== 1 ? "s" : ""} due
+        <h1 className="text-fg-primary font-bold text-2xl">{greeting} 👋</h1>
+        <p className="text-fg-muted text-sm mt-0.5" suppressHydrationWarning>
+          {dayName}, {dateStr} · {suggestions.length} follow-up{suggestions.length !== 1 ? "s" : ""} due
         </p>
       </div>
 

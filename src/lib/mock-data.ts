@@ -2,6 +2,12 @@ import type { Contact } from "@/types/contact";
 import type { Interaction } from "@/types/interaction";
 import type { Section } from "@/types/section";
 
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString();
+}
+
 // ─────────────────────────────────────────────────────────────
 // SECTIONS
 // ─────────────────────────────────────────────────────────────
@@ -1121,7 +1127,7 @@ export const mockContacts: Contact[] = [
     tags: ["High Intent", "Decision Maker", "Technical Buyer"],
     source: "voice",
     last_interaction_at: "2026-04-10T09:00:00Z",
-    next_followup_at: "2026-04-16T09:00:00Z",
+    next_followup_at: daysAgo(1),
     followup_reason: "Proposal sent 4 days ago — awaiting feedback on revised terms",
     company_industry: "AI/SaaS",
     company_size: "105,000 employees",
@@ -1331,7 +1337,7 @@ export const mockContacts: Contact[] = [
     tags: ["High Intent", "Channel Partner"],
     source: "voice",
     last_interaction_at: "2026-04-12T14:30:00Z",
-    next_followup_at: "2026-04-15T09:00:00Z",
+    next_followup_at: daysAgo(2),
     followup_reason: "Overdue: conference follow-up promised within 2 weeks",
     company_industry: "Enterprise SaaS",
     company_size: "230 employees",
@@ -1378,7 +1384,8 @@ export function getMockContact(
  * Used for the "Today's Suggestions" view.
  */
 export function getMockFollowupSuggestions(): Contact[] {
-  const today = new Date("2026-04-16");
+  const today = new Date();
+  today.setHours(23, 59, 59, 999); // end of today
   return mockContacts.filter((c) => {
     if (!c.next_followup_at) return false;
     return new Date(c.next_followup_at) <= today;

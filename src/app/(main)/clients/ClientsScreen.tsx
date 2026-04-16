@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, MessageSquare } from "lucide-react";
+import { Plus } from "lucide-react";
 import { StatusBar, SearchBar, Avatar, Chip, FAB } from "@/components/ui";
 import { formatRelativeTime } from "@/lib/utils/date";
 import type { Contact, PipelineStage } from "@/types/contact";
