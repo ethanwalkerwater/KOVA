@@ -7,6 +7,8 @@ import { StatusBar, SearchBar, Avatar, Chip, FAB } from "@/components/ui";
 import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { useContacts } from "@/lib/hooks/useContacts";
 import { useUIStore } from "@/stores/ui";
+import { useDebounce } from "@/lib/hooks/useDebounce";
+import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 import { formatRelativeTime } from "@/lib/utils/date";
 import type { Contact, PipelineStage } from "@/types/contact";
 
@@ -99,10 +101,16 @@ export function ClientsScreen() {
   const [viewMode, setViewMode] = useState<"list" | "table">("list");
   const { openCapture } = useUIStore();
 
-  // Load contacts — Phase 1: mock data, Phase 2: Supabase via /api/contacts
-  const { contacts, loading, error } = useContacts();
+  // Debounce search query: 300ms delay prevents excessive filtering/API calls while typing
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Client-side filter + search (fast for small lists; Phase 2 will use API params for scale)
+  // Load contacts — Phase 1: mock data, Phase 2: Supabase via /api/contacts
+  // Pass debouncedSearch so Phase 2 server-side search fires after typing pauses
+  const { contacts, loading, error } = useContacts({ q: debouncedSearch });
+
+  // Stage/importance filter — always client-side (fast, doesn't need API round-trip)
+  // Search: Phase 2 is handled server-side via useContacts({ q: debouncedSearch });
+  //         Phase 1 falls back to client-side substring match.
   let filtered = contacts.filter((c) => {
     if (filter === "high") return c.importance === "high";
     if (filter === "engaged") return c.stage === "engaged" || c.stage === "negotiating";
@@ -110,8 +118,9 @@ export function ClientsScreen() {
     return true;
   });
 
-  if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase();
+  // Phase 1 only: client-side text search (Phase 2 uses API q param above)
+  if (!isSupabaseConfigured() && debouncedSearch.trim()) {
+    const q = debouncedSearch.toLowerCase();
     filtered = filtered.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
@@ -209,9 +218,9 @@ export function ClientsScreen() {
           <div className="text-center py-12 px-5">
             <p className="text-red-600 text-sm">{error}</p>
           </div>
-        ) : filtered.length === 0 && searchQuery.trim() ? (
+        ) : filtered.length === 0 && debouncedSearch.trim() ? (
           <div className="text-center py-12">
-            <p className="text-fg-muted text-sm">No contacts match &quot;{searchQuery}&quot;</p>
+            <p className="text-fg-muted text-sm">No contacts match &quot;{debouncedSearch}&quot;</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 px-8">

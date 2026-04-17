@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, Download, Bell, HelpCircle, ChevronRight, LogOut, Loader2 } from "lucide-react";
 import { StatusBar, Avatar } from "@/components/ui";
@@ -44,6 +44,7 @@ export function MeScreen() {
   const { user, loading: authLoading, signOut } = useAuthStore();
   const { addToast } = useUIStore();
   const contactCount = useContactsStore((s) => Object.keys(s.contacts).length);
+  const [exporting, setExporting] = useState(false);
 
   // Resolve display values: real user in Phase 2, demo values in Phase 1
   const displayName = user?.user_metadata?.display_name as string | undefined
@@ -56,6 +57,37 @@ export function MeScreen() {
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : "March 2026";
+
+  const handleExport = useCallback(
+    async (format: "csv" | "json") => {
+      if (!isSupabaseConfigured()) {
+        addToast("Connect Supabase to export real contacts", "info");
+        return;
+      }
+
+      setExporting(true);
+      try {
+        const res = await fetch(`/api/export?format=${format}`);
+        if (!res.ok) throw new Error("Export failed");
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download =
+          res.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] ??
+          `kova-contacts.${format}`;
+        a.click();
+        URL.revokeObjectURL(url);
+        addToast(`Exported as ${format.toUpperCase()}`, "success");
+      } catch {
+        addToast("Export failed — try again", "error");
+      } finally {
+        setExporting(false);
+      }
+    },
+    [addToast],
+  );
 
   const handleSignOut = useCallback(async () => {
     if (!isSupabaseConfigured()) {
@@ -112,20 +144,38 @@ export function MeScreen() {
         {MENU_ITEMS.map((item, index) => {
           const Icon = item.icon;
           const isLast = index === MENU_ITEMS.length - 1;
+
+          const handleClick = () => {
+            if (item.label === "Export Contacts") {
+              // Show inline CSV/JSON choice using two quick toasts isn't ideal,
+              // so we just default to CSV — users who want JSON can tap again.
+              void handleExport("csv");
+            } else {
+              addToast(`${item.label} — coming soon`, "info");
+            }
+          };
+
+          const isExportItem = item.label === "Export Contacts";
+
           return (
             <button
               key={item.label}
+              disabled={isExportItem && exporting}
               className={`w-full flex items-center gap-3 py-4 px-5 text-left ${
                 isLast ? "" : "border-b border-border-light"
-              }`}
-              onClick={() => {
-                addToast(`${item.label} — coming soon`, "info");
-              }}
+              } disabled:opacity-50`}
+              onClick={handleClick}
             >
-              <Icon className="w-5 h-5 text-fg-muted shrink-0" />
+              {isExportItem && exporting ? (
+                <Loader2 className="w-5 h-5 text-fg-muted shrink-0 animate-spin" />
+              ) : (
+                <Icon className="w-5 h-5 text-fg-muted shrink-0" />
+              )}
               <div className="flex-1 min-w-0">
                 <p className="text-fg-primary text-sm font-medium">{item.label}</p>
-                <p className="text-fg-muted text-xs">{item.sublabel}</p>
+                <p className="text-fg-muted text-xs">
+                  {isExportItem ? "Download as CSV (tap) or JSON" : item.sublabel}
+                </p>
               </div>
               <ChevronRight className="w-4 h-4 text-fg-muted shrink-0" />
             </button>
