@@ -82,6 +82,18 @@ Kova is a relationship intelligence tool designed for B2B sales professionals to
 - Node.js 18+
 - npm/pnpm
 
+### Environment Setup
+
+```bash
+# Copy the example env file (Phase 1 works without any real values)
+cp .env.example .env.local
+
+# Phase 2 requires real values — edit .env.local and fill in:
+# - NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY (from Supabase → Settings → API)
+# - SUPABASE_SERVICE_ROLE_KEY (server-side only)
+# - OPENAI_API_KEY
+```
+
 ### Installation
 
 ```bash
@@ -92,7 +104,7 @@ cd kova
 # Install dependencies
 npm install
 
-# Run development server
+# Run development server (Phase 1 mock data — no env vars required)
 npm run dev
 ```
 
