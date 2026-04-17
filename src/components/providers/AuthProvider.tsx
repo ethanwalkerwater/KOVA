@@ -13,6 +13,7 @@
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { useSyncPending } from "@/lib/hooks/useSyncPending";
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -20,6 +21,9 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const { setSession, setLoading } = useAuthStore();
+
+  // Drain offline sync queue whenever we come online
+  useSyncPending();
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {

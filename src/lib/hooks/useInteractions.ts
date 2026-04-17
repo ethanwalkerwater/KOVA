@@ -42,6 +42,42 @@ export function useInteractions(contactId: string) {
         return null;
       }
 
+      // ── Offline-first: write locally before hitting the network ──────────────
+      let localId: string | null = null;
+      try {
+        const { localInteractionId, cacheInteraction, queuePendingSync } =
+          await import("@/lib/db/dexie");
+
+        localId = localInteractionId();
+
+        const localInteraction = {
+          id: localId,
+          contact_id: options.contact_id,
+          owner_id: "", // will be set by server; blank until synced
+          type: options.type,
+          raw_content: options.raw_content,
+          source_context: options.source_context ?? null,
+          media_url: options.media_url ?? null,
+          ai_generated: false,
+          created_at: new Date().toISOString(),
+          pending: true,
+        };
+
+        await cacheInteraction(localInteraction);
+
+        // Optimistically add to store (pending indicator shown to user)
+        appendInteraction(contactId, localInteraction);
+
+        // Queue for sync in case we go offline before the request completes
+        if (!navigator.onLine) {
+          await queuePendingSync(localId, options);
+          addToast("Saved offline — will sync when online", "info");
+          return null;
+        }
+      } catch {
+        // IndexedDB unavailable (private browsing, storage blocked) — continue without cache
+      }
+
       try {
         const res = await fetch("/api/interactions", {
           method: "POST",
@@ -56,7 +92,16 @@ export function useInteractions(contactId: string) {
 
         const data = (await res.json()) as AppendResult;
 
-        // Optimistic update — add interaction to store immediately
+        // Replace the optimistic local entry with the confirmed server record
+        if (localId) {
+          try {
+            const { markSynced } = await import("@/lib/db/dexie");
+            await markSynced(localId, data.interaction.id);
+          } catch {
+            // Non-fatal
+          }
+        }
+
         appendInteraction(contactId, data.interaction);
 
         // If Tier 1 ran and returned updated metadata, patch the contact cache
@@ -68,11 +113,19 @@ export function useInteractions(contactId: string) {
           }
         }
 
-        addToast("Saved", "success");
         return data;
       } catch (err) {
+        // Network failed after optimistic write — queue for retry
+        if (localId) {
+          try {
+            const { queuePendingSync } = await import("@/lib/db/dexie");
+            await queuePendingSync(localId, options);
+          } catch {
+            // IndexedDB unavailable
+          }
+        }
         const message = err instanceof Error ? err.message : "Failed to save";
-        addToast(message, "error");
+        addToast(`${message} — queued for retry`, "error");
         return null;
       }
     },
