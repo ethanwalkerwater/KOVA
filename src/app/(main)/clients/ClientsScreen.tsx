@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, LayoutList, Table2 } from "lucide-react";
 import { StatusBar, SearchBar, Avatar, Chip, FAB } from "@/components/ui";
+import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { useContacts } from "@/lib/hooks/useContacts";
 import { useUIStore } from "@/stores/ui";
 import { formatRelativeTime } from "@/lib/utils/date";
@@ -94,6 +95,8 @@ function ContactCard({ contact, isLast }: ContactCardProps) {
 export function ClientsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  // Default to table view on desktop — togglable
+  const [viewMode, setViewMode] = useState<"list" | "table">("list");
   const { openCapture } = useUIStore();
 
   // Load contacts — Phase 1: mock data, Phase 2: Supabase via /api/contacts
@@ -134,13 +137,42 @@ export function ClientsScreen() {
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-2 pb-3">
         <h1 className="text-fg-primary font-bold text-2xl">Clients</h1>
-        <button
-          onClick={() => openCapture()}
-          className="w-9 h-9 rounded-full bg-fg-primary flex items-center justify-center"
-          aria-label="Add contact"
-        >
-          <Plus className="w-4 h-4 text-fg-inverse" />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View mode toggle — visible on md+ */}
+          <div className="hidden md:flex items-center rounded-xl border border-border bg-surface-secondary p-0.5">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${
+                viewMode === "list"
+                  ? "bg-surface-primary text-fg-primary shadow-sm"
+                  : "text-fg-muted hover:text-fg-secondary"
+              }`}
+              aria-label="List view"
+              title="List view"
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode("table")}
+              className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${
+                viewMode === "table"
+                  ? "bg-surface-primary text-fg-primary shadow-sm"
+                  : "text-fg-muted hover:text-fg-secondary"
+              }`}
+              aria-label="Table view"
+              title="Table view"
+            >
+              <Table2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <button
+            onClick={() => openCapture()}
+            className="w-9 h-9 rounded-full bg-fg-primary flex items-center justify-center"
+            aria-label="Add contact"
+          >
+            <Plus className="w-4 h-4 text-fg-inverse" />
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -167,7 +199,7 @@ export function ClientsScreen() {
         ))}
       </div>
 
-      {/* Contact list */}
+      {/* Contact list / table */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-16">
@@ -187,6 +219,11 @@ export function ClientsScreen() {
             <p className="text-fg-muted text-sm mt-1">
               Tap the + button to add your first contact.
             </p>
+          </div>
+        ) : viewMode === "table" ? (
+          /* Desktop table — only reachable when viewMode=table on md+ screens */
+          <div className="px-5 py-3">
+            <ContactsTable contacts={filtered} />
           </div>
         ) : (
           filtered.map((contact, index) => (

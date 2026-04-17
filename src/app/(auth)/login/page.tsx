@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 
 type Mode = "sign_in" | "sign_up";
 
@@ -15,7 +15,39 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const supabase = createClient();
+  // Phase 1: Supabase not configured — skip auth entirely
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="min-h-dvh bg-surface-secondary flex flex-col items-center justify-center px-6 py-12">
+        <div className="mb-10 flex flex-col items-center gap-2">
+          <div className="h-12 w-12 rounded-2xl bg-accent flex items-center justify-center">
+            <span className="text-fg-inverse font-bold text-xl">K</span>
+          </div>
+          <h1 className="text-fg-primary font-semibold text-2xl tracking-tight">Kova</h1>
+          <p className="text-fg-secondary text-sm text-center">Relationship intelligence for B2B sales</p>
+        </div>
+        <div className="w-full max-w-sm bg-surface-primary rounded-2xl border border-border p-6 shadow-sm flex flex-col gap-4">
+          <p className="text-fg-primary font-semibold text-center">Demo Mode</p>
+          <p className="text-fg-secondary text-sm text-center leading-relaxed">
+            Supabase is not configured. You&apos;re running in demo mode with mock data.
+          </p>
+          <button
+            onClick={() => router.push("/home")}
+            className="h-11 rounded-xl bg-accent text-fg-inverse font-semibold text-sm hover:bg-blue-700 active:scale-[0.98] transition-all"
+          >
+            Continue in Demo Mode
+          </button>
+          <p className="text-fg-muted text-xs text-center">
+            Add{" "}
+            <code className="bg-surface-secondary px-1 py-0.5 rounded text-xs">NEXT_PUBLIC_SUPABASE_URL</code>
+            {" "}&amp;{" "}
+            <code className="bg-surface-secondary px-1 py-0.5 rounded text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>
+            {" "}to .env.local to enable real accounts.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,6 +56,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+
       if (mode === "sign_up") {
         const { error } = await supabase.auth.signUp({
           email,
