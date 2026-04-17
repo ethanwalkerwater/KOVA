@@ -3,7 +3,7 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, RotateCcw } from "lucide-react";
 import type { Section } from "@/types/section";
 import { getSectionIcon, getSectionColor } from "@/lib/markdown/sections";
 import { cn } from "@/lib/utils/cn";
@@ -13,65 +13,136 @@ interface SectionRendererProps {
   section: Section;
   defaultExpanded?: boolean;
   className?: string;
+  /** Called when user clicks "Edit" — parent handles the editing UI */
+  onEdit?: (section: Section) => void;
+  /** Called when user clicks "Restore AI" to clear the override */
+  onRestoreAI?: (section: Section) => void;
 }
 
 export function SectionRenderer({
   section,
   defaultExpanded = true,
   className,
+  onEdit,
+  onRestoreAI,
 }: SectionRendererProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   const Icon = getSectionIcon(section.slug);
   const colorClass = getSectionColor(section.slug);
+  const isOverridden = Boolean(section.user_overrides_md);
+  const displayContent = isOverridden ? section.user_overrides_md! : section.content_md;
 
   return (
     <div className={cn("bg-surface-primary rounded-2xl border border-border p-4", className)}>
-      {/* Header row */}
-      <button
-        type="button"
-        className="flex w-full items-center justify-between"
-        onClick={() => setExpanded((prev) => !prev)}
-        aria-expanded={expanded}
-      >
-        {/* Left: icon + title */}
-        <div className="flex items-center gap-2">
-          <span className={cn("flex h-8 w-8 items-center justify-center rounded-full", colorClass)}>
+      {/* Header row — div (not button) so we can nest interactive controls */}
+      <div className="flex w-full items-center justify-between">
+        {/* Left: expand toggle + icon + title */}
+        <button
+          type="button"
+          className="flex items-center gap-2 flex-1 text-left"
+          onClick={() => setExpanded((prev) => !prev)}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${section.title} section`}
+        >
+          <span
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+              colorClass,
+            )}
+          >
             {/* eslint-disable-next-line react-hooks/static-components -- Icon is a reference to a static Lucide component, not a new function */}
             <Icon size={14} />
           </span>
           <span className="text-fg-primary font-semibold text-sm">{section.title}</span>
-        </div>
+          {isOverridden && (
+            <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-accent-light px-1.5 py-0.5 text-[10px] font-medium text-accent">
+              <Pencil size={8} />
+              Edited
+            </span>
+          )}
+        </button>
 
-        {/* Right: interaction count + chevron */}
-        <div className="flex items-center gap-1.5">
+        {/* Right: interaction count + edit/restore controls + chevron */}
+        <div className="flex items-center gap-2 shrink-0">
           {section.interaction_count > 0 && (
             <span className="text-fg-muted text-xs">
               {section.interaction_count} interaction
               {section.interaction_count !== 1 ? "s" : ""}
             </span>
           )}
-          {expanded ? (
-            <ChevronUp size={12} className="text-fg-muted" />
-          ) : (
-            <ChevronDown size={12} className="text-fg-muted" />
+
+          {/* Override controls — only shown when expanded */}
+          {expanded && (
+            <>
+              {isOverridden && onRestoreAI && (
+                <button
+                  type="button"
+                  onClick={() => onRestoreAI(section)}
+                  className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-fg-secondary hover:text-accent hover:bg-accent-light transition-colors"
+                  aria-label="Restore AI-generated content"
+                  title="Restore AI version"
+                >
+                  <RotateCcw size={10} />
+                  Restore AI
+                </button>
+              )}
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(section)}
+                  className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-fg-secondary hover:text-accent hover:bg-accent-light transition-colors"
+                  aria-label={`Edit ${section.title} section`}
+                  title="Edit section"
+                >
+                  <Pencil size={10} />
+                  Edit
+                </button>
+              )}
+            </>
           )}
+
+          <button
+            type="button"
+            onClick={() => setExpanded((prev) => !prev)}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="p-0.5"
+          >
+            {expanded ? (
+              <ChevronUp size={12} className="text-fg-muted" />
+            ) : (
+              <ChevronDown size={12} className="text-fg-muted" />
+            )}
+          </button>
         </div>
-      </button>
+      </div>
 
       {/* Expanded content */}
       {expanded && (
         <>
-          {/* Regeneration timestamp */}
+          {/* Timestamp line */}
           <p className="mt-1 text-fg-muted text-xs" suppressHydrationWarning>
-            Updated · {formatRelativeTime(section.regenerated_at)}
+            {isOverridden && section.overridden_at ? (
+              <>
+                <span className="text-accent">Edited</span> ·{" "}
+                {formatRelativeTime(section.overridden_at)}
+                {section.override_reason && (
+                  <span className="block mt-0.5 italic">
+                    &ldquo;{section.override_reason}&rdquo;
+                  </span>
+                )}
+              </>
+            ) : (
+              <>Updated · {formatRelativeTime(section.regenerated_at)}</>
+            )}
           </p>
 
           {/* Divider */}
           <div className="border-t border-border-light mt-3 mb-3" />
 
           {/* Markdown content or empty state */}
-          {section.content_md.trim() ? (
+          {displayContent.trim() ? (
             <div
               className={cn(
                 "text-sm text-fg-secondary leading-relaxed",
@@ -86,7 +157,7 @@ export function SectionRenderer({
                 "[&_code]:bg-surface-secondary [&_code]:px-1 [&_code]:rounded [&_code]:text-xs",
               )}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{section.content_md}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
             </div>
           ) : (
             <p className="text-fg-muted text-sm italic">

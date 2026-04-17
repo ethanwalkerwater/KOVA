@@ -17,6 +17,17 @@ export interface Section {
    * supporting interaction (potential hallucination).
    */
   source_interaction_ids: string[] | null;
+  /**
+   * User-authored markdown that overrides the AI-generated `content_md`.
+   * When set, SectionRenderer displays this content instead of the AI version.
+   * Users can always restore the AI version by clearing this field.
+   * Null means no override — AI content is the canonical view.
+   */
+  user_overrides_md?: string | null;
+  /** ISO timestamp of when the user last set an override. */
+  overridden_at?: string | null;
+  /** Optional user note explaining why they overrode the AI content. */
+  override_reason?: string | null;
 }
 
 export const DEFAULT_SECTIONS: { slug: SectionSlug; title: string }[] = [

@@ -37,6 +37,7 @@ Lisa leads a 400-person engineering org focused on NovaTech's cloud platform mig
 - Phone: +86 755 8800 1234`,
     regenerated_at: "2026-04-14T08:00:00Z",
     interaction_count: 4,
+    source_interaction_ids: null,
   },
   {
     id: "section-1-company",
@@ -59,6 +60,7 @@ NovaTech develops enterprise AI tooling for manufacturing supply chains. Their f
 **Tech stack:** AWS (primary), Alibaba Cloud (China region), PostgreSQL, Kubernetes, Python/Go microservices`,
     regenerated_at: "2026-04-14T08:00:00Z",
     interaction_count: 4,
+    source_interaction_ids: null,
   },
   {
     id: "section-1-outreach",
@@ -80,6 +82,7 @@ NovaTech develops enterprise AI tooling for manufacturing supply chains. Their f
 **Communication preferences:** Email for formal docs, WeChat for quick questions. Best window: 9–11am CST.`,
     regenerated_at: "2026-04-14T08:00:00Z",
     interaction_count: 4,
+    source_interaction_ids: null,
   },
   {
     id: "section-1-followup",
@@ -109,6 +112,18 @@ NovaTech develops enterprise AI tooling for manufacturing supply chains. Their f
 - Legal review may push close date past May 15`,
     regenerated_at: "2026-04-14T08:00:00Z",
     interaction_count: 4,
+    source_interaction_ids: null,
+    // Demo: user has overridden the AI-generated follow-up with their own notes
+    user_overrides_md: `## My Follow-up Notes (Edited)
+
+**Priority action:** Revised proposal is drafted — send by April 17 EOD, not April 18.
+Lisa hinted via WeChat that her manager wants to see it before the weekend.
+
+**Legal contact:** Actually CC procurement@novatech.com, not legal@. Lisa corrected this.
+
+**Personal note:** Lisa's daughter just started at Tsinghua — mention this when breaking the ice.`,
+    overridden_at: "2026-04-16T14:30:00Z",
+    override_reason: "AI missed the WeChat update — moved deadline and corrected CC address.",
   },
   {
     id: "section-1-research",
@@ -139,6 +154,7 @@ NovaTech develops enterprise AI tooling for manufacturing supply chains. Their f
 - Engaged with posts from AWS China and Alibaba Cloud enterprise accounts`,
     regenerated_at: "2026-04-14T08:00:00Z",
     interaction_count: 4,
+    source_interaction_ids: null,
   },
 
   // ─── Marcus Johnson (contact-2) ─────────────────────────
@@ -165,6 +181,7 @@ Marcus built and runs the partnerships function at Synapse Labs. He has a backgr
 - Phone: +65 9101 2233`,
     regenerated_at: "2026-04-13T12:00:00Z",
     interaction_count: 3,
+    source_interaction_ids: null,
   },
   {
     id: "section-2-company",
@@ -187,6 +204,7 @@ Synapse Labs develops AI-powered compliance and regulatory reporting tools for m
 **Tech stack:** GCP, Python, Tensorflow, React, PostgreSQL`,
     regenerated_at: "2026-04-13T12:00:00Z",
     interaction_count: 3,
+    source_interaction_ids: null,
   },
   {
     id: "section-2-outreach",
@@ -206,6 +224,7 @@ Synapse Labs develops AI-powered compliance and regulatory reporting tools for m
 **Next step agreed:** Marcus will bring a partnership proposal draft to his CEO by April 20. We agreed to reconvene April 22 to finalize terms.`,
     regenerated_at: "2026-04-13T12:00:00Z",
     interaction_count: 3,
+    source_interaction_ids: null,
   },
   {
     id: "section-2-followup",
@@ -230,6 +249,7 @@ Synapse Labs develops AI-powered compliance and regulatory reporting tools for m
 - Marcus hinted a competing FinTech CRM vendor is also pitching a partnership`,
     regenerated_at: "2026-04-13T12:00:00Z",
     interaction_count: 3,
+    source_interaction_ids: null,
   },
   {
     id: "section-2-research",
@@ -256,6 +276,7 @@ Synapse Labs develops AI-powered compliance and regulatory reporting tools for m
 - Co-marketing with MAS sandbox badge is a strong signal for other bank prospects`,
     regenerated_at: "2026-04-13T12:00:00Z",
     interaction_count: 3,
+    source_interaction_ids: null,
   },
 
   // ─── Sarah Park (contact-3) ──────────────────────────────
@@ -282,6 +303,7 @@ Sarah founded GrowthOS in 2024 after leading product growth at Krafton. She has 
 - LinkedIn: linkedin.com/in/sarahpark-growthos`,
     regenerated_at: "2026-04-12T09:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-3-company",
@@ -304,6 +326,7 @@ GrowthOS builds a revenue intelligence platform that helps early-stage B2B SaaS 
 **Recent:** Just closed seed round in March 2026. Using capital for engineering hires and first enterprise go-to-market push. Product-market fit signals strong among 18 pilot customers.`,
     regenerated_at: "2026-04-12T09:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-3-outreach",
@@ -323,6 +346,7 @@ GrowthOS builds a revenue intelligence platform that helps early-stage B2B SaaS 
 **Status:** Warm lead, waiting for her bandwidth to open post-seed-close.`,
     regenerated_at: "2026-04-12T09:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-3-followup",
@@ -346,6 +370,7 @@ GrowthOS builds a revenue intelligence platform that helps early-stage B2B SaaS 
 - This is a relationship/pipeline investment for future upsell when they grow`,
     regenerated_at: "2026-04-12T09:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-3-research",
@@ -372,6 +397,7 @@ GrowthOS builds a revenue intelligence platform that helps early-stage B2B SaaS 
 - At seed stage, budget sensitivity is high — free trial or low entry price needed`,
     regenerated_at: "2026-04-12T09:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
 
   // ─── David Huang (contact-4) ─────────────────────────────
@@ -397,6 +423,7 @@ David runs enterprise sales for CloudScale's APAC region, covering deals from $1
 - LinkedIn: linkedin.com/in/davidhuangcloudscale`,
     regenerated_at: "2026-04-10T14:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-4-company",
@@ -419,6 +446,7 @@ CloudScale is a publicly listed cloud infrastructure company (HKEX: 9988) provid
 **Tech stack:** Own proprietary cloud infrastructure; Oracle ERP; Salesforce CRM`,
     regenerated_at: "2026-04-10T14:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-4-outreach",
@@ -441,6 +469,7 @@ CloudScale is a publicly listed cloud infrastructure company (HKEX: 9988) provid
 - Offer a 20-minute ROI conversation, not a full demo`,
     regenerated_at: "2026-04-10T14:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-4-followup",
@@ -469,6 +498,7 @@ CloudScale is a publicly listed cloud infrastructure company (HKEX: 9988) provid
 - Champion: need to find internal champion below David; likely a Director of IT or Cloud Architect`,
     regenerated_at: "2026-04-10T14:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-4-research",
@@ -495,6 +525,7 @@ CloudScale is a publicly listed cloud infrastructure company (HKEX: 9988) provid
 - Internal champion needed; David is the executive sponsor but not the day-to-day contact`,
     regenerated_at: "2026-04-10T14:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
 
   // ─── Emma Rodriguez (contact-5) ──────────────────────────
@@ -522,6 +553,7 @@ Emma leads product management for Nexus AI's enterprise ML platform. She champio
 - WeChat: emma_nexus_ai`,
     regenerated_at: "2026-04-15T10:00:00Z",
     interaction_count: 4,
+    source_interaction_ids: null,
   },
   {
     id: "section-5-company",
@@ -544,6 +576,7 @@ Nexus AI builds an end-to-end ML platform for enterprise clients across financia
 **Recent:** Launched Nexus ML Cloud (public SaaS version) in Q1 2026. Announced partnership with NVIDIA for H100 cluster integration. Emma's team owns the enterprise product line.`,
     regenerated_at: "2026-04-15T10:00:00Z",
     interaction_count: 4,
+    source_interaction_ids: null,
   },
   {
     id: "section-5-outreach",
@@ -567,6 +600,7 @@ Nexus AI builds an end-to-end ML platform for enterprise clients across financia
 **Expansion signals:** In April 8 conversation, Emma mentioned the sales team is interested in using the tool. Potential expansion opportunity.`,
     regenerated_at: "2026-04-15T10:00:00Z",
     interaction_count: 4,
+    source_interaction_ids: null,
   },
   {
     id: "section-5-followup",
@@ -596,6 +630,7 @@ Nexus AI builds an end-to-end ML platform for enterprise clients across financia
 - Risk: low — Emma is deeply engaged`,
     regenerated_at: "2026-04-15T10:00:00Z",
     interaction_count: 4,
+    source_interaction_ids: null,
   },
   {
     id: "section-5-research",
@@ -623,6 +658,7 @@ Nexus AI builds an end-to-end ML platform for enterprise clients across financia
 - NVIDIA partnership likely means new internal workflows that could benefit from our product`,
     regenerated_at: "2026-04-15T10:00:00Z",
     interaction_count: 4,
+    source_interaction_ids: null,
   },
 
   // ─── James Wei (contact-6) ───────────────────────────────
@@ -650,6 +686,7 @@ James is the technical co-founder and CTO of BlockBridge, a Web3 infrastructure 
 - Telegram: @jameswei_bb`,
     regenerated_at: "2026-04-01T08:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-6-company",
@@ -672,6 +709,7 @@ BlockBridge builds cross-chain settlement infrastructure for institutional crypt
 **Tech stack:** Rust, Solidity, Go, self-hosted infrastructure`,
     regenerated_at: "2026-04-01T08:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-6-outreach",
@@ -690,6 +728,7 @@ BlockBridge builds cross-chain settlement infrastructure for institutional crypt
 **Status:** Dormant — no contact since December 2025. The prolonged Web3 bear market and their company's strategic pivot have made the timing difficult.`,
     regenerated_at: "2026-04-01T08:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-6-followup",
@@ -717,6 +756,7 @@ BlockBridge builds cross-chain settlement infrastructure for institutional crypt
 - Primary risk: Company may not survive the downturn at current burn rate`,
     regenerated_at: "2026-04-01T08:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
   {
     id: "section-6-research",
@@ -744,6 +784,7 @@ BlockBridge builds cross-chain settlement infrastructure for institutional crypt
 - BlockBridge's pivot is strategically sound but execution risk is high at 45 employees`,
     regenerated_at: "2026-04-01T08:00:00Z",
     interaction_count: 2,
+    source_interaction_ids: null,
   },
 
   // ─── Priya Nair (contact-7) ──────────────────────────────
@@ -771,6 +812,7 @@ Priya leads a 15-person sales team at TechBridge India and owns the company's en
 - Phone: +91 98200 45678`,
     regenerated_at: "2026-04-15T14:00:00Z",
     interaction_count: 3,
+    source_interaction_ids: null,
   },
   {
     id: "section-7-company",
@@ -794,6 +836,7 @@ TechBridge India builds workflow automation and ERP integration tools for mid-ma
 **Tech stack:** Node.js, React, AWS, PostgreSQL, Salesforce (CRM)`,
     regenerated_at: "2026-04-15T14:00:00Z",
     interaction_count: 3,
+    source_interaction_ids: null,
   },
   {
     id: "section-7-outreach",
@@ -815,6 +858,7 @@ TechBridge India builds workflow automation and ERP integration tools for mid-ma
 **Next step:** Priya asked for a follow-up call on April 17 to review the partnership agreement draft.`,
     regenerated_at: "2026-04-15T14:00:00Z",
     interaction_count: 3,
+    source_interaction_ids: null,
   },
   {
     id: "section-7-followup",
@@ -845,6 +889,7 @@ TechBridge India builds workflow automation and ERP integration tools for mid-ma
 - 60% probability — high intent but partnership agreements can drag on legal`,
     regenerated_at: "2026-04-15T14:00:00Z",
     interaction_count: 3,
+    source_interaction_ids: null,
   },
   {
     id: "section-7-research",
@@ -871,6 +916,7 @@ TechBridge India builds workflow automation and ERP integration tools for mid-ma
 - Strong strategic fit: their ERP focus + our relationship intelligence = full enterprise workflow stack`,
     regenerated_at: "2026-04-15T14:00:00Z",
     interaction_count: 3,
+    source_interaction_ids: null,
   },
 ];
 
