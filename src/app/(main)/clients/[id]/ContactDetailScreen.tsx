@@ -2,17 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, MoreHorizontal, Zap } from "lucide-react";
+import { ChevronLeft, Zap, Loader2, Plus } from "lucide-react";
 import { StatusBar, Avatar, Chip } from "@/components/ui";
 import { SectionRenderer } from "@/components/contacts/SectionRenderer";
 import { InteractionTimeline } from "@/components/contacts/InteractionTimeline";
+import { useContact } from "@/lib/hooks/useContact";
+import { useUIStore } from "@/stores/ui";
 import type { Contact } from "@/types/contact";
 import type { Section } from "@/types/section";
-import type { Interaction } from "@/types/interaction";
 import { cn } from "@/lib/utils/cn";
 
 interface Props {
-  contact: Contact & { sections: Section[]; interactions: Interaction[] };
+  id: string;
 }
 
 function getStageLabel(stage: Contact["stage"]): string {
@@ -60,13 +61,46 @@ function getScoreColor(score: number): string {
   return "bg-surface-secondary text-fg-secondary";
 }
 
-export function ContactDetailScreen({ contact }: Props) {
+export function ContactDetailScreen({ id }: Props) {
   const [activeTab, setActiveTab] = useState<"info" | "notes">("info");
+  const { openCapture } = useUIStore();
 
-  const infoSections = contact.sections.filter((s) =>
+  const { contact, loading, error } = useContact(id);
+
+  // ── Loading ────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full bg-surface-primary">
+        <StatusBar />
+        <div className="flex items-center justify-center flex-1">
+          <Loader2 className="w-6 h-6 text-fg-muted animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !contact) {
+    return (
+      <div className="flex flex-col h-full bg-surface-primary">
+        <StatusBar />
+        <div className="flex flex-col items-center justify-center flex-1 gap-3 px-8">
+          <p className="text-fg-primary font-semibold">Contact not found</p>
+          {error && <p className="text-fg-muted text-sm text-center">{error}</p>}
+          <Link href="/clients" className="text-accent text-sm">
+            ← Back to Clients
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Derive views from sections ─────────────────────────────────────────────
+
+  const infoSections = (contact.sections ?? []).filter((s: Section) =>
     ["profile", "company", "follow-up"].includes(s.slug),
   );
-  const researchSection = contact.sections.find((s) => s.slug === "research");
+  const researchSection = (contact.sections ?? []).find((s: Section) => s.slug === "research");
 
   const score = contact.relationship_score ?? 0;
 
@@ -80,8 +114,12 @@ export function ContactDetailScreen({ contact }: Props) {
           <ChevronLeft className="w-4 h-4" /> Back
         </Link>
         <span className="text-fg-primary font-semibold text-sm">Contact</span>
-        <button className="w-8 h-8 flex items-center justify-center">
-          <MoreHorizontal className="w-5 h-5 text-fg-secondary" />
+        <button
+          onClick={() => openCapture(contact.id)}
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-secondary"
+          aria-label="Add note"
+        >
+          <Plus className="w-4 h-4 text-fg-secondary" />
         </button>
       </div>
 
@@ -111,13 +149,11 @@ export function ContactDetailScreen({ contact }: Props) {
       {/* AI Insights card */}
       {contact.ai_summary && (
         <div className="bg-accent-light rounded-2xl mx-4 mb-4 p-4 border border-accent/20">
-          {/* Header */}
           <div className="flex items-center gap-1.5 mb-2">
             <Zap className="w-3.5 h-3.5 text-accent" />
             <span className="text-accent font-semibold text-sm">AI Insights</span>
           </div>
 
-          {/* Score + stage row */}
           <div className="flex items-center gap-2">
             <span
               className={cn("text-xs font-bold rounded-full px-2 py-0.5", getScoreColor(score))}
@@ -127,10 +163,8 @@ export function ContactDetailScreen({ contact }: Props) {
             <span className="text-fg-secondary text-xs">Stage: {getStageLabel(contact.stage)}</span>
           </div>
 
-          {/* Summary */}
           <p className="text-fg-primary text-sm mt-2 leading-relaxed">{contact.ai_summary}</p>
 
-          {/* Key topics */}
           {contact.key_topics.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {contact.key_topics.map((topic) => (
@@ -141,9 +175,10 @@ export function ContactDetailScreen({ contact }: Props) {
             </div>
           )}
 
-          {/* Next step */}
           {contact.suggested_next_step && (
-            <p className="text-fg-secondary text-xs italic mt-2">→ {contact.suggested_next_step}</p>
+            <p className="text-fg-secondary text-xs italic mt-2">
+              → {contact.suggested_next_step}
+            </p>
           )}
         </div>
       )}
@@ -179,21 +214,30 @@ export function ContactDetailScreen({ contact }: Props) {
       {/* Tab content */}
       {activeTab === "info" && (
         <div className="pb-8">
-          {infoSections.map((section) => (
-            <SectionRenderer
-              key={section.id}
-              section={section}
-              defaultExpanded={section.slug === "profile"}
-              className="mx-4 mb-3"
-            />
-          ))}
+          {infoSections.length === 0 ? (
+            <div className="text-center py-8 px-5">
+              <p className="text-fg-muted text-sm">No sections generated yet.</p>
+              <p className="text-fg-muted text-xs mt-1">
+                Add a note to trigger AI profile generation.
+              </p>
+            </div>
+          ) : (
+            infoSections.map((section) => (
+              <SectionRenderer
+                key={section.id}
+                section={section}
+                defaultExpanded={section.slug === "profile"}
+                className="mx-4 mb-3"
+              />
+            ))
+          )}
         </div>
       )}
 
       {activeTab === "notes" && (
         <div className="pb-8">
           <div className="mx-4 mb-4">
-            <InteractionTimeline interactions={contact.interactions} />
+            <InteractionTimeline interactions={contact.interactions ?? []} />
           </div>
           {researchSection && (
             <SectionRenderer

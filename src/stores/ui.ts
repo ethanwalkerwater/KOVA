@@ -21,8 +21,10 @@ interface UIState {
   captureOpen: boolean;
   /** Pre-populated contact ID when capturing for a specific contact. */
   captureContactId: string | null;
+  /** Optional text to pre-fill when the sheet opens (e.g. from ChatInputBar). */
+  captureInitialText: string | null;
 
-  openCapture: (contactId?: string) => void;
+  openCapture: (contactId?: string, initialText?: string) => void;
   closeCapture: () => void;
 
   // ── Search ─────────────────────────────────────────────────────────────────
@@ -45,9 +47,16 @@ let toastCounter = 0;
 export const useUIStore = create<UIState>((set) => ({
   captureOpen: false,
   captureContactId: null,
+  captureInitialText: null,
 
-  openCapture: (contactId) => set({ captureOpen: true, captureContactId: contactId ?? null }),
-  closeCapture: () => set({ captureOpen: false, captureContactId: null }),
+  openCapture: (contactId, initialText) =>
+    set({
+      captureOpen: true,
+      captureContactId: contactId ?? null,
+      captureInitialText: initialText ?? null,
+    }),
+  closeCapture: () =>
+    set({ captureOpen: false, captureContactId: null, captureInitialText: null }),
 
   contactSearchQuery: "",
   setContactSearchQuery: (query) => set({ contactSearchQuery: query }),

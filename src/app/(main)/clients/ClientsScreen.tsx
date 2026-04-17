@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { StatusBar, SearchBar, Avatar, Chip, FAB } from "@/components/ui";
+import { useContacts } from "@/lib/hooks/useContacts";
+import { useUIStore } from "@/stores/ui";
 import { formatRelativeTime } from "@/lib/utils/date";
 import type { Contact, PipelineStage } from "@/types/contact";
 
@@ -87,15 +89,17 @@ function ContactCard({ contact, isLast }: ContactCardProps) {
   );
 }
 
-interface ClientsScreenProps {
-  contacts: Contact[];
-}
+// ── Screen ─────────────────────────────────────────────────────────────────────
 
-export function ClientsScreen({ contacts }: ClientsScreenProps) {
+export function ClientsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const { openCapture } = useUIStore();
 
-  // Apply filter
+  // Load contacts — Phase 1: mock data, Phase 2: Supabase via /api/contacts
+  const { contacts, loading, error } = useContacts();
+
+  // Client-side filter + search (fast for small lists; Phase 2 will use API params for scale)
   let filtered = contacts.filter((c) => {
     if (filter === "high") return c.importance === "high";
     if (filter === "engaged") return c.stage === "engaged" || c.stage === "negotiating";
@@ -103,14 +107,14 @@ export function ClientsScreen({ contacts }: ClientsScreenProps) {
     return true;
   });
 
-  // Apply search
   if (searchQuery.trim()) {
     const q = searchQuery.toLowerCase();
     filtered = filtered.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         (c.company?.toLowerCase().includes(q) ?? false) ||
-        (c.title?.toLowerCase().includes(q) ?? false),
+        (c.title?.toLowerCase().includes(q) ?? false) ||
+        (c.ai_summary?.toLowerCase().includes(q) ?? false),
     );
   }
 
@@ -130,7 +134,11 @@ export function ClientsScreen({ contacts }: ClientsScreenProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-2 pb-3">
         <h1 className="text-fg-primary font-bold text-2xl">Clients</h1>
-        <button className="w-9 h-9 rounded-full bg-fg-primary flex items-center justify-center">
+        <button
+          onClick={() => openCapture()}
+          className="w-9 h-9 rounded-full bg-fg-primary flex items-center justify-center"
+          aria-label="Add contact"
+        >
           <Plus className="w-4 h-4 text-fg-inverse" />
         </button>
       </div>
@@ -161,23 +169,34 @@ export function ClientsScreen({ contacts }: ClientsScreenProps) {
 
       {/* Contact list */}
       <div className="flex-1 overflow-y-auto">
-        {filtered.length === 0 && searchQuery.trim() ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-6 h-6 text-fg-muted animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-12 px-5">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        ) : filtered.length === 0 && searchQuery.trim() ? (
           <div className="text-center py-12">
             <p className="text-fg-muted text-sm">No contacts match &quot;{searchQuery}&quot;</p>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16 px-8">
+            <p className="text-fg-primary font-semibold text-base">No contacts yet</p>
+            <p className="text-fg-muted text-sm mt-1">
+              Tap the + button to add your first contact.
+            </p>
+          </div>
         ) : (
           filtered.map((contact, index) => (
-            <ContactCard
-              key={contact.id}
-              contact={contact}
-              isLast={index === filtered.length - 1}
-            />
+            <ContactCard key={contact.id} contact={contact} isLast={index === filtered.length - 1} />
           ))
         )}
       </div>
 
       {/* FAB */}
-      <FAB onClick={() => {}} />
+      <FAB onClick={() => openCapture()} />
     </div>
   );
 }

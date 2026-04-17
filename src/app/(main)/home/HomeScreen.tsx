@@ -1,6 +1,7 @@
 "use client";
 
 import { StatusBar, Avatar, Chip, Button, ChatInputBar } from "@/components/ui";
+import { useUIStore } from "@/stores/ui";
 import type { Contact } from "@/types/contact";
 
 interface FollowupCardProps {
@@ -51,6 +52,8 @@ export function HomeScreen({ suggestions }: HomeScreenProps) {
   const hour = today.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
+  const { openCapture } = useUIStore();
+
   return (
     <div className="flex flex-col">
       <StatusBar />
@@ -90,14 +93,15 @@ export function HomeScreen({ suggestions }: HomeScreenProps) {
         </div>
       </div>
 
-      {/* Chat Input Bar */}
+      {/* Chat Input Bar — opens CaptureSheet */}
       <div className="px-4 pb-4">
         <ChatInputBar
-          onSend={() => {}}
-          onVoiceStart={() => {}}
+          onSend={(text) => openCapture(undefined, text)}
+          onVoiceStart={() => openCapture()}
           onVoiceEnd={() => {}}
           onCameraPress={() => {}}
-          onPlusPress={() => {}}
+          onPlusPress={() => openCapture()}
+          placeholder="Tell me about someone you just met..."
         />
       </div>
     </div>

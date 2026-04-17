@@ -1441,6 +1441,18 @@ export const mockContacts: Contact[] = [
 // ─────────────────────────────────────────────────────────────
 
 /**
+ * Get all contacts with their joined sections and interactions.
+ * Used by useContacts hook in Phase 1 (mock data mode).
+ */
+export function getMockContacts(): (Contact & { sections: Section[]; interactions: Interaction[] })[] {
+  return mockContacts.map((c) => ({
+    ...c,
+    sections: mockSections.filter((s) => s.contact_id === c.id),
+    interactions: mockInteractions.filter((i) => i.contact_id === c.id),
+  }));
+}
+
+/**
  * Get all data for a single contact including joined sections and interactions.
  * Used for the contact detail page.
  */
