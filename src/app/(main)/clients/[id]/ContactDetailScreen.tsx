@@ -17,26 +17,40 @@ interface Props {
 
 function getStageLabel(stage: Contact["stage"]): string {
   switch (stage) {
-    case "new_lead":       return "New Lead";
-    case "contacted":      return "Contacted";
-    case "engaged":        return "Engaged";
-    case "negotiating":    return "Negotiating";
-    case "closed_won":     return "Closed Won";
-    case "closed_lost":    return "Closed Lost";
-    case "dormant":        return "Dormant";
-    default:               return stage;
+    case "new_lead":
+      return "New Lead";
+    case "contacted":
+      return "Contacted";
+    case "engaged":
+      return "Engaged";
+    case "negotiating":
+      return "Negotiating";
+    case "closed_won":
+      return "Closed Won";
+    case "closed_lost":
+      return "Closed Lost";
+    case "dormant":
+      return "Dormant";
+    default:
+      return stage;
   }
 }
 
 function getStageChipVariant(stage: Contact["stage"]): Parameters<typeof Chip>[0]["variant"] {
   switch (stage) {
-    case "new_lead":       return "new-lead";
-    case "engaged":        return "engaged";
-    case "negotiating":    return "negotiating";
+    case "new_lead":
+      return "new-lead";
+    case "engaged":
+      return "engaged";
+    case "negotiating":
+      return "negotiating";
     case "closed_won":
-    case "closed_lost":    return "closed";
-    case "dormant":        return "dormant";
-    default:               return "default";
+    case "closed_lost":
+      return "closed";
+    case "dormant":
+      return "dormant";
+    default:
+      return "default";
   }
 }
 
@@ -50,7 +64,7 @@ export function ContactDetailScreen({ contact }: Props) {
   const [activeTab, setActiveTab] = useState<"info" | "notes">("info");
 
   const infoSections = contact.sections.filter((s) =>
-    ["profile", "company", "follow-up"].includes(s.slug)
+    ["profile", "company", "follow-up"].includes(s.slug),
   );
   const researchSection = contact.sections.find((s) => s.slug === "research");
 
@@ -62,10 +76,7 @@ export function ContactDetailScreen({ contact }: Props) {
 
       {/* Top nav row */}
       <div className="flex items-center justify-between px-5 py-3">
-        <Link
-          href="/clients"
-          className="flex items-center text-accent text-sm font-medium gap-1"
-        >
+        <Link href="/clients" className="flex items-center text-accent text-sm font-medium gap-1">
           <ChevronLeft className="w-4 h-4" /> Back
         </Link>
         <span className="text-fg-primary font-semibold text-sm">Contact</span>
@@ -79,9 +90,7 @@ export function ContactDetailScreen({ contact }: Props) {
         <div className="flex items-start gap-4">
           <Avatar name={contact.name} size="lg" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-fg-primary font-bold text-xl leading-tight">
-              {contact.name}
-            </h1>
+            <h1 className="text-fg-primary font-bold text-xl leading-tight">{contact.name}</h1>
             {(contact.title || contact.company) && (
               <p className="text-fg-secondary text-sm mt-0.5">
                 {[contact.title, contact.company].filter(Boolean).join(" · ")}
@@ -92,12 +101,8 @@ export function ContactDetailScreen({ contact }: Props) {
                 label={getStageLabel(contact.stage)}
                 variant={getStageChipVariant(contact.stage)}
               />
-              {contact.importance === "high" && (
-                <Chip label="High Intent" variant="high-intent" />
-              )}
-              {contact.importance === "medium" && (
-                <Chip label="Medium" variant="connected" />
-              )}
+              {contact.importance === "high" && <Chip label="High Intent" variant="high-intent" />}
+              {contact.importance === "medium" && <Chip label="Medium" variant="connected" />}
             </div>
           </div>
         </div>
@@ -115,31 +120,21 @@ export function ContactDetailScreen({ contact }: Props) {
           {/* Score + stage row */}
           <div className="flex items-center gap-2">
             <span
-              className={cn(
-                "text-xs font-bold rounded-full px-2 py-0.5",
-                getScoreColor(score)
-              )}
+              className={cn("text-xs font-bold rounded-full px-2 py-0.5", getScoreColor(score))}
             >
               {score}
             </span>
-            <span className="text-fg-secondary text-xs">
-              Stage: {getStageLabel(contact.stage)}
-            </span>
+            <span className="text-fg-secondary text-xs">Stage: {getStageLabel(contact.stage)}</span>
           </div>
 
           {/* Summary */}
-          <p className="text-fg-primary text-sm mt-2 leading-relaxed">
-            {contact.ai_summary}
-          </p>
+          <p className="text-fg-primary text-sm mt-2 leading-relaxed">{contact.ai_summary}</p>
 
           {/* Key topics */}
           {contact.key_topics.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {contact.key_topics.map((topic) => (
-                <span
-                  key={topic}
-                  className="bg-accent text-white text-xs rounded-full px-2 py-0.5"
-                >
+                <span key={topic} className="bg-accent text-white text-xs rounded-full px-2 py-0.5">
                   {topic}
                 </span>
               ))}
@@ -148,9 +143,7 @@ export function ContactDetailScreen({ contact }: Props) {
 
           {/* Next step */}
           {contact.suggested_next_step && (
-            <p className="text-fg-secondary text-xs italic mt-2">
-              → {contact.suggested_next_step}
-            </p>
+            <p className="text-fg-secondary text-xs italic mt-2">→ {contact.suggested_next_step}</p>
           )}
         </div>
       )}
@@ -164,7 +157,7 @@ export function ContactDetailScreen({ contact }: Props) {
             "flex-1 pb-2 text-sm font-medium",
             activeTab === "info"
               ? "border-b-2 border-accent text-accent font-semibold"
-              : "text-fg-muted"
+              : "text-fg-muted",
           )}
         >
           Info
@@ -176,7 +169,7 @@ export function ContactDetailScreen({ contact }: Props) {
             "flex-1 pb-2 text-sm font-medium",
             activeTab === "notes"
               ? "border-b-2 border-accent text-accent font-semibold"
-              : "text-fg-muted"
+              : "text-fg-muted",
           )}
         >
           Notes

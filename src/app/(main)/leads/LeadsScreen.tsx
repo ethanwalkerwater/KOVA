@@ -13,8 +13,7 @@ const MOCK_LEADS = [
     industry: "B2B SaaS",
     funding: "Series B · $28M",
     location: "Singapore",
-    summary:
-      "Recently posted about scaling data pipelines. Company doubled headcount in Q1.",
+    summary: "Recently posted about scaling data pipelines. Company doubled headcount in Q1.",
     relevance:
       "High match — VP Engineering at Series B SaaS, active on LinkedIn about infrastructure",
   },
@@ -28,8 +27,7 @@ const MOCK_LEADS = [
     location: "Shanghai",
     summary:
       "Attended same industry conference. Company announced digital transformation initiative.",
-    relevance:
-      "Medium match — procurement decision maker, known digital transformation budget",
+    relevance: "Medium match — procurement decision maker, known digital transformation budget",
   },
   {
     id: "lead-3",
@@ -41,8 +39,7 @@ const MOCK_LEADS = [
     location: "Dubai",
     summary:
       "Published article on modern logistics infrastructure. CTO evaluating vendor relationships.",
-    relevance:
-      "Medium match — CTO at early-stage logistics SaaS, technical evaluator",
+    relevance: "Medium match — CTO at early-stage logistics SaaS, technical evaluator",
   },
 ];
 
@@ -91,11 +88,7 @@ function LeadCard({ lead }: { lead: Lead }) {
       <p className="text-fg-muted text-xs italic mb-3">{lead.relevance}</p>
 
       {/* Row 5: Add to Clients button */}
-      <Button
-        variant="secondary"
-        className="h-8 px-3 text-xs"
-        onClick={() => console.log("Add lead:", lead.name)}
-      >
+      <Button variant="secondary" className="h-8 px-3 text-xs" onClick={() => {}}>
         Add to Clients
       </Button>
     </div>

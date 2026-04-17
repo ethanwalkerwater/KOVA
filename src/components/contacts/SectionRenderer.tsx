@@ -26,12 +26,7 @@ export function SectionRenderer({
   const colorClass = getSectionColor(section.slug);
 
   return (
-    <div
-      className={cn(
-        "bg-surface-primary rounded-2xl border border-border p-4",
-        className
-      )}
-    >
+    <div className={cn("bg-surface-primary rounded-2xl border border-border p-4", className)}>
       {/* Header row */}
       <button
         type="button"
@@ -41,17 +36,11 @@ export function SectionRenderer({
       >
         {/* Left: icon + title */}
         <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full",
-              colorClass
-            )}
-          >
+          <span className={cn("flex h-8 w-8 items-center justify-center rounded-full", colorClass)}>
+            {/* eslint-disable-next-line react-hooks/static-components -- Icon is a reference to a static Lucide component, not a new function */}
             <Icon size={14} />
           </span>
-          <span className="text-fg-primary font-semibold text-sm">
-            {section.title}
-          </span>
+          <span className="text-fg-primary font-semibold text-sm">{section.title}</span>
         </div>
 
         {/* Right: interaction count + chevron */}
@@ -94,12 +83,10 @@ export function SectionRenderer({
                 "[&_li]:mb-0.5",
                 "[&_strong]:text-fg-primary [&_strong]:font-semibold",
                 "[&_a]:text-accent [&_a]:underline",
-                "[&_code]:bg-surface-secondary [&_code]:px-1 [&_code]:rounded [&_code]:text-xs"
+                "[&_code]:bg-surface-secondary [&_code]:px-1 [&_code]:rounded [&_code]:text-xs",
               )}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {section.content_md}
-              </ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{section.content_md}</ReactMarkdown>
             </div>
           ) : (
             <p className="text-fg-muted text-sm italic">

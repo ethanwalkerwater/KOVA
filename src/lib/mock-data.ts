@@ -43,7 +43,8 @@ Lisa leads a 400-person engineering org focused on NovaTech's cloud platform mig
     contact_id: "contact-1",
     slug: "company",
     title: "Company",
-    summary: "NovaTech is a Series B AI/SaaS company in Shenzhen building enterprise supply chain tools.",
+    summary:
+      "NovaTech is a Series B AI/SaaS company in Shenzhen building enterprise supply chain tools.",
     content_md: `## NovaTech
 **AI/SaaS · Series B · Shenzhen**
 
@@ -64,7 +65,8 @@ NovaTech develops enterprise AI tooling for manufacturing supply chains. Their f
     contact_id: "contact-1",
     slug: "outreach",
     title: "Outreach",
-    summary: "Met at SaaStr Shanghai; proposal sent, budget Q1-approved. Final revision needed before Fri.",
+    summary:
+      "Met at SaaStr Shanghai; proposal sent, budget Q1-approved. Final revision needed before Fri.",
     content_md: `## Outreach History
 
 **First contact:** March 18, 2026 — Met at SaaStr Shanghai Day 2. Lisa approached our booth after the AI-in-manufacturing panel. 30-minute conversation about cloud migration challenges. Exchanged WeChat contacts.
@@ -84,7 +86,8 @@ NovaTech develops enterprise AI tooling for manufacturing supply chains. Their f
     contact_id: "contact-1",
     slug: "follow-up",
     title: "Follow-up",
-    summary: "Send revised phased-pricing proposal by April 18; check in post-legal review April 25.",
+    summary:
+      "Send revised phased-pricing proposal by April 18; check in post-legal review April 25.",
     content_md: `## Follow-up Plan
 
 **Immediate (by April 18):**
@@ -112,7 +115,8 @@ NovaTech develops enterprise AI tooling for manufacturing supply chains. Their f
     contact_id: "contact-1",
     slug: "research",
     title: "Research",
-    summary: "NovaTech Q1 2026 expansion into SEA; CTO's public AI infra comments signal genuine urgency.",
+    summary:
+      "NovaTech Q1 2026 expansion into SEA; CTO's public AI infra comments signal genuine urgency.",
     content_md: `## Research Notes
 
 **Company news (AI-sourced, April 2026):**
@@ -167,7 +171,8 @@ Marcus built and runs the partnerships function at Synapse Labs. He has a backgr
     contact_id: "contact-2",
     slug: "company",
     title: "Company",
-    summary: "Synapse Labs is a Series A FinTech in Singapore building AI-powered compliance tooling for banks.",
+    summary:
+      "Synapse Labs is a Series A FinTech in Singapore building AI-powered compliance tooling for banks.",
     content_md: `## Synapse Labs
 **FinTech · Series A · Singapore**
 
@@ -188,7 +193,8 @@ Synapse Labs develops AI-powered compliance and regulatory reporting tools for m
     contact_id: "contact-2",
     slug: "outreach",
     title: "Outreach",
-    summary: "Business card scan at FinTech Festival; follow-up call confirmed partnership interest.",
+    summary:
+      "Business card scan at FinTech Festival; follow-up call confirmed partnership interest.",
     content_md: `## Outreach History
 
 **First contact:** March 5, 2026 — Business card exchanged at Singapore FinTech Festival. Marcus stopped by our demo booth and asked pointed questions about API documentation and onboarding support.
@@ -206,7 +212,8 @@ Synapse Labs develops AI-powered compliance and regulatory reporting tools for m
     contact_id: "contact-2",
     slug: "follow-up",
     title: "Follow-up",
-    summary: "Check in April 22 after Marcus presents to CEO; have revenue share counter-proposal ready.",
+    summary:
+      "Check in April 22 after Marcus presents to CEO; have revenue share counter-proposal ready.",
     content_md: `## Follow-up Plan
 
 **April 22:**
@@ -229,7 +236,8 @@ Synapse Labs develops AI-powered compliance and regulatory reporting tools for m
     contact_id: "contact-2",
     slug: "research",
     title: "Research",
-    summary: "Synapse Labs in MAS sandbox; Series B fundraise expected H2 2026 — timing favors partnership now.",
+    summary:
+      "Synapse Labs in MAS sandbox; Series B fundraise expected H2 2026 — timing favors partnership now.",
     content_md: `## Research Notes
 
 **Company news (AI-sourced):**
@@ -256,7 +264,8 @@ Synapse Labs develops AI-powered compliance and regulatory reporting tools for m
     contact_id: "contact-3",
     slug: "profile",
     title: "Profile",
-    summary: "Founder & CEO of GrowthOS, a PLG-focused SaaS startup recently closed seed round in Seoul.",
+    summary:
+      "Founder & CEO of GrowthOS, a PLG-focused SaaS startup recently closed seed round in Seoul.",
     content_md: `## Sarah Park
 **Founder & CEO** at GrowthOS (Seoul)
 
@@ -279,7 +288,8 @@ Sarah founded GrowthOS in 2024 after leading product growth at Krafton. She has 
     contact_id: "contact-3",
     slug: "company",
     title: "Company",
-    summary: "GrowthOS is a seed-stage PLG SaaS in Seoul building revenue intelligence for B2B startups.",
+    summary:
+      "GrowthOS is a seed-stage PLG SaaS in Seoul building revenue intelligence for B2B startups.",
     content_md: `## GrowthOS
 **SaaS/PLG · Seed · Seoul**
 
@@ -300,7 +310,8 @@ GrowthOS builds a revenue intelligence platform that helps early-stage B2B SaaS 
     contact_id: "contact-3",
     slug: "outreach",
     title: "Outreach",
-    summary: "Connected via mutual intro; text note exchanged, voice memo sent. Awaiting demo scheduling.",
+    summary:
+      "Connected via mutual intro; text note exchanged, voice memo sent. Awaiting demo scheduling.",
     content_md: `## Outreach History
 
 **First contact:** March 30, 2026 — Intro via Jenny Kim (SparkLabs portfolio manager). Sarah replied within 4 hours expressing interest in seeing a demo.
@@ -341,7 +352,8 @@ GrowthOS builds a revenue intelligence platform that helps early-stage B2B SaaS 
     contact_id: "contact-3",
     slug: "research",
     title: "Research",
-    summary: "GrowthOS just closed $2.5M seed (March 2026); strong PLG signal with 18 pilot customers.",
+    summary:
+      "GrowthOS just closed $2.5M seed (March 2026); strong PLG signal with 18 pilot customers.",
     content_md: `## Research Notes
 
 **Company news (AI-sourced):**
@@ -391,7 +403,8 @@ David runs enterprise sales for CloudScale's APAC region, covering deals from $1
     contact_id: "contact-4",
     slug: "company",
     title: "Company",
-    summary: "CloudScale is a publicly traded cloud infrastructure company in HK with 3,400 employees.",
+    summary:
+      "CloudScale is a publicly traded cloud infrastructure company in HK with 3,400 employees.",
     content_md: `## CloudScale
 **Cloud Infrastructure · Public · Hong Kong**
 
@@ -412,7 +425,8 @@ CloudScale is a publicly listed cloud infrastructure company (HKEX: 9988) provid
     contact_id: "contact-4",
     slug: "outreach",
     title: "Outreach",
-    summary: "Imported from LinkedIn; AI research completed. No direct contact yet — cold outreach needed.",
+    summary:
+      "Imported from LinkedIn; AI research completed. No direct contact yet — cold outreach needed.",
     content_md: `## Outreach History
 
 **Imported:** April 5, 2026 — Contact imported from LinkedIn Sales Navigator export. No prior interaction.
@@ -461,7 +475,8 @@ CloudScale is a publicly listed cloud infrastructure company (HKEX: 9988) provid
     contact_id: "contact-4",
     slug: "research",
     title: "Research",
-    summary: "CloudScale Q1 2026 call flagged tooling investment; HKEX filings show infrastructure capex up 22% YoY.",
+    summary:
+      "CloudScale Q1 2026 call flagged tooling investment; HKEX filings show infrastructure capex up 22% YoY.",
     content_md: `## Research Notes
 
 **Company news (AI-sourced, April 2026):**
@@ -488,7 +503,8 @@ CloudScale is a publicly listed cloud infrastructure company (HKEX: 9988) provid
     contact_id: "contact-5",
     slug: "profile",
     title: "Profile",
-    summary: "Director of Product at Nexus AI — closed deal, now a reference customer and expansion target.",
+    summary:
+      "Director of Product at Nexus AI — closed deal, now a reference customer and expansion target.",
     content_md: `## Emma Rodriguez
 **Director of Product** at Nexus AI (Beijing)
 
@@ -512,7 +528,8 @@ Emma leads product management for Nexus AI's enterprise ML platform. She champio
     contact_id: "contact-5",
     slug: "company",
     title: "Company",
-    summary: "Nexus AI is a Series C ML platform company in Beijing with 620 employees and strong revenue growth.",
+    summary:
+      "Nexus AI is a Series C ML platform company in Beijing with 620 employees and strong revenue growth.",
     content_md: `## Nexus AI
 **AI/ML · Series C · Beijing**
 
@@ -533,7 +550,8 @@ Nexus AI builds an end-to-end ML platform for enterprise clients across financia
     contact_id: "contact-5",
     slug: "outreach",
     title: "Outreach",
-    summary: "Deal closed March 15; strong post-sale engagement. Emma is now an active reference customer.",
+    summary:
+      "Deal closed March 15; strong post-sale engagement. Emma is now an active reference customer.",
     content_md: `## Outreach History
 
 **Initial evaluation:** January–March 2026 — Emma ran a 6-week technical evaluation with her engineering team. We provided sandbox access, weekly check-ins, and a custom integration POC.
@@ -584,7 +602,8 @@ Nexus AI builds an end-to-end ML platform for enterprise clients across financia
     contact_id: "contact-5",
     slug: "research",
     title: "Research",
-    summary: "Nexus AI Series C well-funded; NVIDIA partnership and ML Cloud launch create expansion context.",
+    summary:
+      "Nexus AI Series C well-funded; NVIDIA partnership and ML Cloud launch create expansion context.",
     content_md: `## Research Notes
 
 **Company news (AI-sourced):**
@@ -612,7 +631,8 @@ Nexus AI builds an end-to-end ML platform for enterprise clients across financia
     contact_id: "contact-6",
     slug: "profile",
     title: "Profile",
-    summary: "CTO at BlockBridge; relationship has gone cold since Dec 2025, market headwinds in Web3.",
+    summary:
+      "CTO at BlockBridge; relationship has gone cold since Dec 2025, market headwinds in Web3.",
     content_md: `## James Wei
 **CTO** at BlockBridge (Shanghai)
 
@@ -636,7 +656,8 @@ James is the technical co-founder and CTO of BlockBridge, a Web3 infrastructure 
     contact_id: "contact-6",
     slug: "company",
     title: "Company",
-    summary: "BlockBridge is a Series A Web3 company in Shanghai facing challenging market conditions.",
+    summary:
+      "BlockBridge is a Series A Web3 company in Shanghai facing challenging market conditions.",
     content_md: `## BlockBridge
 **Web3/Blockchain · Series A · Shanghai**
 
@@ -675,7 +696,8 @@ BlockBridge builds cross-chain settlement infrastructure for institutional crypt
     contact_id: "contact-6",
     slug: "follow-up",
     title: "Follow-up",
-    summary: "Consider re-engaging Q3 2026 if Web3 market recovers or they complete their institutional pivot.",
+    summary:
+      "Consider re-engaging Q3 2026 if Web3 market recovers or they complete their institutional pivot.",
     content_md: `## Follow-up Plan
 
 **Re-engagement trigger conditions:**
@@ -701,7 +723,8 @@ BlockBridge builds cross-chain settlement infrastructure for institutional crypt
     contact_id: "contact-6",
     slug: "research",
     title: "Research",
-    summary: "BlockBridge B2B revenue down 30% YoY; institutional pivot announced Feb 2026 — high uncertainty.",
+    summary:
+      "BlockBridge B2B revenue down 30% YoY; institutional pivot announced Feb 2026 — high uncertainty.",
     content_md: `## Research Notes
 
 **Company news (AI-sourced):**
@@ -729,7 +752,8 @@ BlockBridge builds cross-chain settlement infrastructure for institutional crypt
     contact_id: "contact-7",
     slug: "profile",
     title: "Profile",
-    summary: "Head of Sales at TechBridge India; follow-up due tomorrow, high intent channel partner candidate.",
+    summary:
+      "Head of Sales at TechBridge India; follow-up due tomorrow, high intent channel partner candidate.",
     content_md: `## Priya Nair
 **Head of Sales** at TechBridge India (Mumbai)
 
@@ -776,7 +800,8 @@ TechBridge India builds workflow automation and ERP integration tools for mid-ma
     contact_id: "contact-7",
     slug: "outreach",
     title: "Outreach",
-    summary: "Met at SaaStr India; follow-up meeting confirmed partnership interest; follow-up due April 17.",
+    summary:
+      "Met at SaaStr India; follow-up meeting confirmed partnership interest; follow-up due April 17.",
     content_md: `## Outreach History
 
 **First contact:** April 2, 2026 — Met at SaaStr India Annual in Mumbai. Priya attended our channel partner breakfast roundtable. She introduced herself as "actively looking for APAC SaaS partners."
@@ -796,7 +821,8 @@ TechBridge India builds workflow automation and ERP integration tools for mid-ma
     contact_id: "contact-7",
     slug: "follow-up",
     title: "Follow-up",
-    summary: "Call tomorrow April 17 to review partnership agreement; prepare Singapore customer reference list.",
+    summary:
+      "Call tomorrow April 17 to review partnership agreement; prepare Singapore customer reference list.",
     content_md: `## Follow-up Plan
 
 **Tomorrow (April 17 — follow-up call scheduled):**
@@ -825,7 +851,8 @@ TechBridge India builds workflow automation and ERP integration tools for mid-ma
     contact_id: "contact-7",
     slug: "research",
     title: "Research",
-    summary: "TechBridge India growing 60% YoY; Tata Digital partnership and APAC expansion create strong channel opportunity.",
+    summary:
+      "TechBridge India growing 60% YoY; Tata Digital partnership and APAC expansion create strong channel opportunity.",
     content_md: `## Research Notes
 
 **Company news (AI-sourced):**
@@ -1233,7 +1260,8 @@ export const mockContacts: Contact[] = [
     source: "web_search",
     last_interaction_at: "2026-04-10T10:00:00Z",
     next_followup_at: "2026-04-17T09:00:00Z",
-    followup_reason: "Send cold outreach email referencing Q1 2026 earnings call tooling commentary",
+    followup_reason:
+      "Send cold outreach email referencing Q1 2026 earnings call tooling commentary",
     company_industry: "Cloud Infrastructure",
     company_size: "3,400 employees",
     company_stage: "Public",
@@ -1248,7 +1276,8 @@ export const mockContacts: Contact[] = [
       "Imported from LinkedIn Sales Navigator. No prior contact. Q1 earnings flagged tooling investment as priority — strong cold outreach angle. Expect 90–180 day procurement cycle.",
     relationship_score: 15,
     key_topics: ["Enterprise cloud", "Procurement cycles", "ROI models"],
-    suggested_next_step: "Send personalized cold email referencing CloudScale Q1 2026 earnings call",
+    suggested_next_step:
+      "Send personalized cold email referencing CloudScale Q1 2026 earnings call",
     created_at: "2026-04-05T08:00:00Z",
     updated_at: "2026-04-10T10:00:00Z",
   },
@@ -1318,7 +1347,8 @@ export const mockContacts: Contact[] = [
       "Dormant since Dec 2025. Web3 market headwinds and BlockBridge's strategic pivot away from retail DeFi make timing difficult. Revisit if market recovers or institutional product gains traction.",
     relationship_score: 22,
     key_topics: ["Web3", "Blockchain infrastructure", "Institutional crypto"],
-    suggested_next_step: "Monitor for re-engagement triggers; revisit Q3 2026 if conditions improve",
+    suggested_next_step:
+      "Monitor for re-engagement triggers; revisit Q3 2026 if conditions improve",
     created_at: "2025-09-15T10:00:00Z",
     updated_at: "2026-01-15T09:00:00Z",
   },
@@ -1353,7 +1383,8 @@ export const mockContacts: Contact[] = [
       "High intent channel partner from SaaStr India. Call tomorrow (April 17) to review partnership agreement. Tata Digital partnership and Singapore expansion create strong strategic alignment.",
     relationship_score: 72,
     key_topics: ["Channel partnerships", "India enterprise SaaS", "APAC expansion"],
-    suggested_next_step: "Prepare partnership agreement draft and Singapore customer reference list for April 17 call",
+    suggested_next_step:
+      "Prepare partnership agreement draft and Singapore customer reference list for April 17 call",
     created_at: "2026-04-02T18:00:00Z",
     updated_at: "2026-04-12T14:30:00Z",
   },
@@ -1368,7 +1399,7 @@ export const mockContacts: Contact[] = [
  * Used for the contact detail page.
  */
 export function getMockContact(
-  id: string
+  id: string,
 ): (Contact & { sections: Section[]; interactions: Interaction[] }) | undefined {
   const contact = mockContacts.find((c) => c.id === id);
   if (!contact) return undefined;

@@ -1,13 +1,7 @@
 import type { Section } from "./section";
 import type { Interaction } from "./interaction";
 
-export type ContactSource =
-  | "voice"
-  | "card_ocr"
-  | "text"
-  | "photo"
-  | "manual"
-  | "web_search";
+export type ContactSource = "voice" | "card_ocr" | "text" | "photo" | "manual" | "web_search";
 
 export type Importance = "high" | "medium" | "low";
 

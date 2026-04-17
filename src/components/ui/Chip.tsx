@@ -26,7 +26,7 @@ export function Chip({ label, variant = "default", className }: ChipProps) {
       className={cn(
         "px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap",
         VARIANTS[variant] ?? VARIANTS.default,
-        className
+        className,
       )}
     >
       {label}

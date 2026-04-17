@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Shield,
-  Download,
-  Bell,
-  HelpCircle,
-  ChevronRight,
-  LogOut,
-} from "lucide-react";
+import { Shield, Download, Bell, HelpCircle, ChevronRight, LogOut } from "lucide-react";
 import { StatusBar, Avatar } from "@/components/ui";
 
 const MOCK_USER = {
@@ -50,9 +43,7 @@ export function MeScreen() {
       <div className="mx-4 mb-4 bg-surface-primary rounded-3xl border border-border p-5">
         <div className="flex flex-col items-center">
           <Avatar name={MOCK_USER.name} size="lg" />
-          <p className="text-fg-primary font-bold text-xl text-center mt-3">
-            {MOCK_USER.name}
-          </p>
+          <p className="text-fg-primary font-bold text-xl text-center mt-3">{MOCK_USER.name}</p>
           <p className="text-fg-muted text-sm text-center">{MOCK_USER.email}</p>
           <span className="bg-accent text-white rounded-full px-3 py-1 text-xs font-semibold mt-2">
             {MOCK_USER.plan}
@@ -74,7 +65,7 @@ export function MeScreen() {
               className={`w-full flex items-center gap-3 py-4 px-5 text-left ${
                 isLast ? "" : "border-b border-border-light"
               }`}
-              onClick={() => console.log("Menu:", item.label)}
+              onClick={() => {}}
             >
               <Icon className="w-5 h-5 text-fg-muted shrink-0" />
               <div className="flex-1 min-w-0">
@@ -89,10 +80,7 @@ export function MeScreen() {
 
       {/* Danger section */}
       <div className="bg-surface-primary rounded-2xl border border-border mx-4 mb-4">
-        <button
-          className="w-full flex items-center gap-3 px-5 py-4 text-left"
-          onClick={() => console.log("Sign out")}
-        >
+        <button className="w-full flex items-center gap-3 px-5 py-4 text-left" onClick={() => {}}>
           <LogOut className="w-5 h-5 text-accent-orange shrink-0" />
           <span className="text-accent-orange text-sm font-medium">Sign Out</span>
         </button>

@@ -15,7 +15,7 @@ export function FAB({ onClick, className }: FABProps) {
       aria-label="Add new"
       className={cn(
         "fixed bottom-28 right-5 z-20 flex items-center justify-center w-[60px] h-[60px] rounded-full bg-fg-primary shadow-[0_4px_16px_#00000020]",
-        className
+        className,
       )}
     >
       <Plus className="w-[26px] h-[26px] text-fg-inverse" />

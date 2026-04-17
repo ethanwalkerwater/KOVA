@@ -19,7 +19,7 @@ export function Button({ variant = "primary", className, children, ...props }: B
       className={cn(
         "flex items-center justify-center gap-2 px-4 h-11 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
         VARIANTS[variant],
-        className
+        className,
       )}
       {...props}
     >

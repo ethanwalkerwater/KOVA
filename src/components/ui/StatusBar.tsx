@@ -8,7 +8,13 @@ export function StatusBar() {
 
   useEffect(() => {
     const tick = () =>
-      setTime(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: false }));
+      setTime(
+        new Date().toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: false,
+        }),
+      );
     tick();
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);

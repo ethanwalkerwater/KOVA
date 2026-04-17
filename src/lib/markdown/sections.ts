@@ -1,11 +1,4 @@
-import {
-  User,
-  Building2,
-  MessageSquare,
-  Calendar,
-  Search,
-  FileText,
-} from "lucide-react";
+import { User, Building2, MessageSquare, Calendar, Search, FileText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { DEFAULT_SECTIONS } from "@/types/section";
 import type { SectionSlug } from "@/types/section";

@@ -12,7 +12,7 @@ export function formatRelativeTime(dateStr: string): string {
   const days = Math.floor(diff / 86_400_000);
   if (days < 7) return `${days}d ago`;
   if (days < 30) return `${Math.floor(days / 7)}wk ago`;
-  if (days < 365) return `${Math.floor(days / 30)}mo ago`;  // Use 365 for year boundary (fixes the 360-day edge case)
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`; // Use 365 for year boundary (fixes the 360-day edge case)
   return `${Math.floor(days / 365)}y ago`;
 }
 

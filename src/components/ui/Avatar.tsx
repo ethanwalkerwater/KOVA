@@ -64,7 +64,7 @@ export function Avatar({ name, size = "md", imageUrl, className }: AvatarProps) 
         SIZE_CLASSES[size],
         getColorClass(name),
         "rounded-full flex items-center justify-center text-white font-semibold shrink-0",
-        className
+        className,
       )}
       aria-label={name}
     >

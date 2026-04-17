@@ -86,32 +86,25 @@ function truncate(text: string, maxLen: number): string {
   return text.slice(0, maxLen) + "…";
 }
 
-export function InteractionTimeline({
-  interactions,
-  className,
-}: InteractionTimelineProps) {
+export function InteractionTimeline({ interactions, className }: InteractionTimelineProps) {
   if (interactions.length === 0) {
     return (
       <div className={cn("text-center py-8", className)}>
         <p className="text-fg-muted text-sm">No interactions yet.</p>
-        <p className="text-fg-muted text-xs mt-1">
-          Add a voice note or text note to get started.
-        </p>
+        <p className="text-fg-muted text-xs mt-1">Add a voice note or text note to get started.</p>
       </div>
     );
   }
 
   const sorted = [...interactions].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
 
   return (
     <div className={cn("", className)}>
       {/* Section heading */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-fg-primary font-semibold text-sm">
-          Interaction Log
-        </span>
+        <span className="text-fg-primary font-semibold text-sm">Interaction Log</span>
         <span className="text-fg-muted text-xs">{interactions.length}</span>
       </div>
 
@@ -133,14 +126,12 @@ export function InteractionTimeline({
                 <span
                   className={cn(
                     "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
-                    meta.colorClass
+                    meta.colorClass,
                   )}
                 >
                   <Icon size={9} />
                 </span>
-                {!isLast && (
-                  <div className="flex-1 border-l-2 border-border-light mt-1 mb-1" />
-                )}
+                {!isLast && <div className="flex-1 border-l-2 border-border-light mt-1 mb-1" />}
               </div>
 
               {/* Right: content */}

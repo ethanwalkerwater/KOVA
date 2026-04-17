@@ -16,7 +16,9 @@ const FILTER_OPTIONS: { value: Filter; label: string }[] = [
   { value: "negotiating", label: "Negotiating" },
 ];
 
-function getStageChip(stage: PipelineStage): { variant: Parameters<typeof Chip>[0]["variant"]; label: string } | null {
+function getStageChip(
+  stage: PipelineStage,
+): { variant: Parameters<typeof Chip>[0]["variant"]; label: string } | null {
   switch (stage) {
     case "new_lead":
       return { variant: "new-lead", label: "New Lead" };
@@ -55,10 +57,7 @@ function ContactCard({ contact, isLast }: ContactCardProps) {
         <div className="flex items-center justify-between">
           <span className="font-semibold text-fg-primary text-sm">{contact.name}</span>
           {contact.last_interaction_at && (
-            <span
-              className="text-fg-muted text-xs ml-2 shrink-0"
-              suppressHydrationWarning
-            >
+            <span className="text-fg-muted text-xs ml-2 shrink-0" suppressHydrationWarning>
               {formatRelativeTime(contact.last_interaction_at)}
             </span>
           )}
@@ -69,14 +68,18 @@ function ContactCard({ contact, isLast }: ContactCardProps) {
           </p>
         )}
         <div className="flex items-center gap-2 mt-1">
-          {stageChip && (
-            <Chip label={stageChip.label} variant={stageChip.variant} />
-          )}
+          {stageChip && <Chip label={stageChip.label} variant={stageChip.variant} />}
           {contact.importance === "high" && (
-            <span className="w-2 h-2 rounded-full bg-accent-orange shrink-0" aria-label="High priority" />
+            <span
+              className="w-2 h-2 rounded-full bg-accent-orange shrink-0"
+              aria-label="High priority"
+            />
           )}
           {contact.importance === "medium" && (
-            <span className="w-2 h-2 rounded-full bg-accent shrink-0" aria-label="Medium priority" />
+            <span
+              className="w-2 h-2 rounded-full bg-accent shrink-0"
+              aria-label="Medium priority"
+            />
           )}
         </div>
       </div>
@@ -107,7 +110,7 @@ export function ClientsScreen({ contacts }: ClientsScreenProps) {
       (c) =>
         c.name.toLowerCase().includes(q) ||
         (c.company?.toLowerCase().includes(q) ?? false) ||
-        (c.title?.toLowerCase().includes(q) ?? false)
+        (c.title?.toLowerCase().includes(q) ?? false),
     );
   }
 
@@ -174,9 +177,7 @@ export function ClientsScreen({ contacts }: ClientsScreenProps) {
       </div>
 
       {/* FAB */}
-      <FAB
-        onClick={() => console.log("Add")}
-      />
+      <FAB onClick={() => {}} />
     </div>
   );
 }
