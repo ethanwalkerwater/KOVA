@@ -1,14 +1,19 @@
 "use client";
 
-import { Shield, Download, Bell, HelpCircle, ChevronRight, LogOut } from "lucide-react";
+import { useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Shield, Download, Bell, HelpCircle, ChevronRight, LogOut, Loader2 } from "lucide-react";
 import { StatusBar, Avatar } from "@/components/ui";
+import { useAuthStore } from "@/stores/auth";
+import { useContactsStore } from "@/stores/contacts";
+import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { useUIStore } from "@/stores/ui";
 
-const MOCK_USER = {
-  name: "Alex Morgan",
-  email: "alex@company.com",
-  plan: "Pro",
-  contactCount: 7,
-  memberSince: "March 2026",
+// Phase 1 fallback profile shown when Supabase is not configured
+const DEMO_USER = {
+  name: "Demo User",
+  email: "demo@kova.app",
+  plan: "Free",
 };
 
 const MENU_ITEMS = [
@@ -35,6 +40,52 @@ const MENU_ITEMS = [
 ];
 
 export function MeScreen() {
+  const router = useRouter();
+  const { user, loading: authLoading, signOut } = useAuthStore();
+  const { addToast } = useUIStore();
+  const contactCount = useContactsStore((s) => Object.keys(s.contacts).length);
+
+  // Resolve display values: real user in Phase 2, demo values in Phase 1
+  const displayName = user?.user_metadata?.display_name as string | undefined
+    ?? user?.email?.split("@")[0]
+    ?? DEMO_USER.name;
+  const displayEmail = user?.email ?? DEMO_USER.email;
+  const displayPlan = "Free"; // subscription tier from profiles table — extend later
+
+  // Member since: use user.created_at if available
+  const memberSince = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    : "March 2026";
+
+  const handleSignOut = useCallback(async () => {
+    if (!isSupabaseConfigured()) {
+      addToast("Connect Supabase to use sign-out", "info");
+      return;
+    }
+
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      signOut(); // clear Zustand store
+      router.push("/login");
+    } catch {
+      addToast("Sign out failed — try again", "error");
+    }
+  }, [signOut, router, addToast]);
+
+  // Show a minimal spinner while auth is loading (only on initial mount in Phase 2)
+  if (authLoading && isSupabaseConfigured()) {
+    return (
+      <div className="flex flex-col h-full">
+        <StatusBar />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 text-fg-muted animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col">
       <StatusBar />
@@ -42,14 +93,16 @@ export function MeScreen() {
       {/* Profile card */}
       <div className="mx-4 mb-4 bg-surface-primary rounded-3xl border border-border p-5">
         <div className="flex flex-col items-center">
-          <Avatar name={MOCK_USER.name} size="lg" />
-          <p className="text-fg-primary font-bold text-xl text-center mt-3">{MOCK_USER.name}</p>
-          <p className="text-fg-muted text-sm text-center">{MOCK_USER.email}</p>
+          <Avatar name={displayName} size="lg" />
+          <p className="text-fg-primary font-bold text-xl text-center mt-3">{displayName}</p>
+          <p className="text-fg-muted text-sm text-center">{displayEmail}</p>
           <span className="bg-accent text-white rounded-full px-3 py-1 text-xs font-semibold mt-2">
-            {MOCK_USER.plan}
+            {displayPlan}
           </span>
           <p className="text-fg-secondary text-sm mt-3">
-            {MOCK_USER.contactCount} Contacts · Since Mar 2026
+            {contactCount > 0 ? `${contactCount} Contact${contactCount !== 1 ? "s" : ""}` : "No contacts yet"}
+            {" · Since "}
+            {memberSince}
           </p>
         </div>
       </div>
@@ -65,7 +118,9 @@ export function MeScreen() {
               className={`w-full flex items-center gap-3 py-4 px-5 text-left ${
                 isLast ? "" : "border-b border-border-light"
               }`}
-              onClick={() => {}}
+              onClick={() => {
+                addToast(`${item.label} — coming soon`, "info");
+              }}
             >
               <Icon className="w-5 h-5 text-fg-muted shrink-0" />
               <div className="flex-1 min-w-0">
@@ -78,13 +133,23 @@ export function MeScreen() {
         })}
       </div>
 
-      {/* Danger section */}
+      {/* Sign out */}
       <div className="bg-surface-primary rounded-2xl border border-border mx-4 mb-4">
-        <button className="w-full flex items-center gap-3 px-5 py-4 text-left" onClick={() => {}}>
+        <button
+          className="w-full flex items-center gap-3 px-5 py-4 text-left"
+          onClick={() => void handleSignOut()}
+        >
           <LogOut className="w-5 h-5 text-accent-orange shrink-0" />
           <span className="text-accent-orange text-sm font-medium">Sign Out</span>
         </button>
       </div>
+
+      {/* Phase 1 hint */}
+      {!isSupabaseConfigured() && (
+        <p className="text-fg-muted text-xs text-center px-8 pb-4">
+          Running in demo mode. Connect Supabase to enable real accounts.
+        </p>
+      )}
     </div>
   );
 }
