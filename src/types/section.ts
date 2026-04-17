@@ -9,6 +9,14 @@ export interface Section {
   summary: string | null; // AI one-liner for table view
   regenerated_at: string; // when AI last rebuilt this section
   interaction_count: number; // how many interactions were used to generate
+  /**
+   * IDs of the interactions this section was derived from.
+   * Used for hallucination detection — every non-empty section should cite at
+   * least one interaction. Null means the section was created before attribution
+   * was tracked (legacy); empty array means AI produced content without any
+   * supporting interaction (potential hallucination).
+   */
+  source_interaction_ids: string[] | null;
 }
 
 export const DEFAULT_SECTIONS: { slug: SectionSlug; title: string }[] = [
