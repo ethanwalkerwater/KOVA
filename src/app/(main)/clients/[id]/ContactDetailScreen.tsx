@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, Zap, Loader2, Plus } from "lucide-react";
+import { ChevronLeft, Zap, Loader2, Plus, RefreshCw, Globe } from "lucide-react";
 import { StatusBar, Avatar, Chip } from "@/components/ui";
 import { SectionRenderer } from "@/components/contacts/SectionRenderer";
 import { InteractionTimeline } from "@/components/contacts/InteractionTimeline";
 import { useContact } from "@/lib/hooks/useContact";
+import { useRegenerate } from "@/lib/hooks/useRegenerate";
 import { useUIStore } from "@/stores/ui";
 import type { Contact } from "@/types/contact";
 import type { Section } from "@/types/section";
@@ -63,9 +64,39 @@ function getScoreColor(score: number): string {
 
 export function ContactDetailScreen({ id }: Props) {
   const [activeTab, setActiveTab] = useState<"info" | "notes">("info");
+  const [enriching, setEnriching] = useState(false);
   const { openCapture } = useUIStore();
+  const { addToast } = useUIStore();
 
   const { contact, loading, error } = useContact(id);
+  const { regenerating, trigger: regenerate } = useRegenerate(id);
+
+  async function handleEnrich() {
+    if (!contact) return;
+    setEnriching(true);
+    try {
+      const res = await fetch("/api/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contact_id: contact.id,
+          name: contact.name,
+          company: contact.company ?? undefined,
+        }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Enrichment failed");
+      }
+      addToast("Research saved — regenerating profile...", "success");
+      // Trigger full regeneration so research section gets rebuilt
+      await regenerate();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Enrichment failed", "error");
+    } finally {
+      setEnriching(false);
+    }
+  }
 
   // ── Loading ────────────────────────────────────────────────────────────────
 
@@ -114,13 +145,26 @@ export function ContactDetailScreen({ id }: Props) {
           <ChevronLeft className="w-4 h-4" /> Back
         </Link>
         <span className="text-fg-primary font-semibold text-sm">Contact</span>
-        <button
-          onClick={() => openCapture(contact.id)}
-          className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-secondary"
-          aria-label="Add note"
-        >
-          <Plus className="w-4 h-4 text-fg-secondary" />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Regenerate AI profile */}
+          <button
+            onClick={() => void regenerate()}
+            disabled={regenerating}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-secondary disabled:opacity-50"
+            aria-label="Regenerate AI profile"
+            title="Regenerate AI profile"
+          >
+            <RefreshCw className={cn("w-4 h-4 text-fg-secondary", regenerating && "animate-spin")} />
+          </button>
+          {/* Add note */}
+          <button
+            onClick={() => openCapture(contact.id)}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-secondary"
+            aria-label="Add note"
+          >
+            <Plus className="w-4 h-4 text-fg-secondary" />
+          </button>
+        </div>
       </div>
 
       {/* Profile Header */}
@@ -144,6 +188,29 @@ export function ContactDetailScreen({ id }: Props) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Quick action bar */}
+      <div className="flex items-center gap-2 px-4 mb-4">
+        <button
+          onClick={() => void handleEnrich()}
+          disabled={enriching || regenerating}
+          className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-surface-primary border border-border text-fg-secondary text-xs font-medium hover:bg-accent-light hover:text-accent hover:border-accent/30 transition-colors disabled:opacity-50"
+        >
+          {enriching ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Globe className="w-3.5 h-3.5" />
+          )}
+          {enriching ? "Researching..." : "Enrich with AI"}
+        </button>
+        <button
+          onClick={() => openCapture(contact.id)}
+          className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-surface-primary border border-border text-fg-secondary text-xs font-medium hover:bg-accent-light hover:text-accent hover:border-accent/30 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Add note
+        </button>
       </div>
 
       {/* AI Insights card */}

@@ -1,51 +1,81 @@
 "use client";
 
-import { StatusBar, Avatar, Chip, Button, ChatInputBar } from "@/components/ui";
+import Link from "next/link";
+import { Loader2, CheckCircle2, Clock } from "lucide-react";
+import { StatusBar, Avatar, Chip, ChatInputBar } from "@/components/ui";
 import { useUIStore } from "@/stores/ui";
-import type { Contact } from "@/types/contact";
+import { useSuggestions, type DailySuggestion } from "@/lib/hooks/useSuggestions";
+
+// ── Follow-up card ─────────────────────────────────────────────────────────────
 
 interface FollowupCardProps {
-  contact: Contact;
+  suggestion: DailySuggestion;
+  onDone: (contactId: string) => void;
+  onLater: (contactId: string) => void;
 }
 
-function FollowupCard({ contact }: FollowupCardProps) {
+function FollowupCard({ suggestion, onDone, onLater }: FollowupCardProps) {
+  const { contact, reason, urgency } = suggestion;
+
   return (
     <div className="bg-surface-primary rounded-2xl border border-border p-4 mb-3">
       {/* Top row: Avatar + name/company + importance chip */}
       <div className="flex items-center gap-3">
-        <Avatar name={contact.name} size="sm" />
+        <Link href={`/clients/${contact.id}`}>
+          <Avatar name={contact.name} size="sm" />
+        </Link>
         <div className="flex-1 min-w-0">
-          <p className="text-fg-primary font-semibold text-sm leading-tight truncate">
-            {contact.name}
-          </p>
-          {contact.company && <p className="text-fg-muted text-xs truncate">{contact.company}</p>}
+          <Link href={`/clients/${contact.id}`}>
+            <p className="text-fg-primary font-semibold text-sm leading-tight truncate hover:text-accent">
+              {contact.name}
+            </p>
+          </Link>
+          {contact.company && (
+            <p className="text-fg-muted text-xs truncate">{contact.company}</p>
+          )}
         </div>
-        {contact.importance === "high" && <Chip label="High Intent" variant="high-intent" />}
+        {urgency === 2 && <Chip label="Due today" variant="high-intent" />}
+        {urgency === 1 && <Chip label="High priority" variant="engaged" />}
       </div>
 
-      {/* Follow-up reason */}
-      {contact.followup_reason && (
-        <p className="text-fg-secondary text-sm mt-2.5 line-clamp-2">{contact.followup_reason}</p>
+      {/* Reason */}
+      <p className="text-fg-secondary text-sm mt-2.5 line-clamp-2">{reason}</p>
+
+      {/* AI summary */}
+      {contact.ai_summary && (
+        <p className="text-fg-muted text-xs mt-1 line-clamp-1 italic">{contact.ai_summary}</p>
       )}
 
-      {/* Bottom row: AI summary + Contact button */}
-      <div className="flex items-center justify-between gap-3 mt-3">
-        {contact.ai_summary && (
-          <p className="text-fg-muted text-xs flex-1 line-clamp-1">{contact.ai_summary}</p>
-        )}
-        <Button variant="primary" className="h-8 px-3 text-xs shrink-0" onClick={() => {}}>
-          Contact
-        </Button>
+      {/* Actions */}
+      <div className="flex items-center gap-2 mt-3">
+        <button
+          onClick={() => onDone(contact.id)}
+          className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-accent-green-light text-accent-green text-xs font-medium hover:bg-accent-green hover:text-white transition-colors"
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          Done
+        </button>
+        <button
+          onClick={() => onLater(contact.id)}
+          className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-surface-secondary text-fg-secondary text-xs font-medium hover:bg-border transition-colors"
+        >
+          <Clock className="w-3.5 h-3.5" />
+          Later
+        </button>
+        <Link
+          href={`/clients/${contact.id}`}
+          className="ml-auto text-accent text-xs font-medium hover:underline"
+        >
+          View →
+        </Link>
       </div>
     </div>
   );
 }
 
-interface HomeScreenProps {
-  suggestions: Contact[];
-}
+// ── Screen ─────────────────────────────────────────────────────────────────────
 
-export function HomeScreen({ suggestions }: HomeScreenProps) {
+export function HomeScreen() {
   const today = new Date();
   const dayName = today.toLocaleDateString("en-US", { weekday: "long" });
   const dateStr = today.toLocaleDateString("en-US", { month: "long", day: "numeric" });
@@ -53,6 +83,7 @@ export function HomeScreen({ suggestions }: HomeScreenProps) {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   const { openCapture } = useUIStore();
+  const { suggestions, loading, markDone, markLater } = useSuggestions();
 
   return (
     <div className="flex flex-col">
@@ -62,24 +93,43 @@ export function HomeScreen({ suggestions }: HomeScreenProps) {
       <div className="px-5 pt-2 pb-4">
         <h1 className="text-fg-primary font-bold text-2xl">{greeting} 👋</h1>
         <p className="text-fg-muted text-sm mt-0.5" suppressHydrationWarning>
-          {dayName}, {dateStr} · {suggestions.length} follow-up{suggestions.length !== 1 ? "s" : ""}{" "}
-          due
+          {dayName}, {dateStr}
+          {!loading && suggestions.length > 0 && (
+            <> · {suggestions.length} follow-up{suggestions.length !== 1 ? "s" : ""} due</>
+          )}
         </p>
       </div>
 
       {/* Today's Follow-ups */}
-      {suggestions.length > 0 && (
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 text-fg-muted animate-spin" />
+        </div>
+      ) : suggestions.length > 0 ? (
         <div className="px-5 pb-4">
           <p className="text-fg-muted text-xs font-medium uppercase tracking-wide mb-2">
             Today&apos;s Follow-ups
           </p>
-          {suggestions.map((contact) => (
-            <FollowupCard key={contact.id} contact={contact} />
+          {suggestions.map((s) => (
+            <FollowupCard
+              key={s.contact.id}
+              suggestion={s}
+              onDone={markDone}
+              onLater={markLater}
+            />
           ))}
+        </div>
+      ) : (
+        <div className="px-5 pb-4">
+          <div className="bg-accent-green-light rounded-2xl border border-accent-green/20 p-4 text-center">
+            <CheckCircle2 className="w-6 h-6 text-accent-green mx-auto mb-1" />
+            <p className="text-accent-green font-medium text-sm">All caught up!</p>
+            <p className="text-accent-green/70 text-xs mt-0.5">No follow-ups due today.</p>
+          </div>
         </div>
       )}
 
-      {/* Quick Add */}
+      {/* Quick Add prompt */}
       <div className="px-5 pb-4">
         <p className="text-fg-muted text-xs font-medium uppercase tracking-wide mb-2">Quick Add</p>
         <div className="bg-surface-primary rounded-2xl border border-border p-4">

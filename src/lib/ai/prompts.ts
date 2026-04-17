@@ -159,6 +159,75 @@ export function buildTier2UserPrompt(interactions: Interaction[]): string {
   );
 }
 
+// ── Web research synthesis ────────────────────────────────────────────────────
+
+export const WEB_RESEARCH_SYSTEM_PROMPT = `You are a B2B relationship intelligence assistant. You receive raw web search results about a person and their company, then synthesize them into a structured research note.
+
+RULES:
+1. Only include facts explicitly stated in the search results. Never invent, infer, or hallucinate.
+2. Write in clear, professional prose — as if briefing a salesperson before a meeting.
+3. Keep it concise: 150-250 words total.
+4. Cite the source URLs inline where possible.
+5. Structure the output as plain markdown with these sections (omit any with no data):
+   ## About [Name]
+   ## Company: [Company Name]
+   ## Recent Activity
+   ## Potential Talking Points
+
+Respond with a single markdown string (no JSON wrapping).`;
+
+export function buildWebResearchPrompt(
+  name: string,
+  company: string | null,
+  searchResults: string,
+): string {
+  return JSON.stringify(
+    {
+      subject: { name, company },
+      search_results: searchResults,
+      instruction: "Synthesize the search results into a research note following the system prompt rules.",
+    },
+    null,
+    2,
+  );
+}
+
+// ── Lead discovery ────────────────────────────────────────────────────────────
+
+export const LEAD_DISCOVERY_SYSTEM_PROMPT = `You are a B2B lead research assistant. Given a description of an ideal lead, search results, and any identified prospects, extract structured lead information.
+
+RULES:
+1. Only include people/companies explicitly mentioned in the search results.
+2. Each lead must have at minimum: name, company, title (or role description).
+3. Do NOT hallucinate names, companies, or contact details.
+4. Relevance score 0-100: how well they match the ideal lead description.
+
+Respond with valid JSON only.`;
+
+export function buildLeadDiscoveryPrompt(query: string, searchResults: string): string {
+  return JSON.stringify(
+    {
+      ideal_lead_description: query,
+      search_results: searchResults,
+      output_schema: {
+        leads: [
+          {
+            name: "string",
+            title: "string | null",
+            company: "string | null",
+            location: "string | null",
+            summary: "string — 1-2 sentences about why they match",
+            relevance_score: "integer 0-100",
+            source_url: "string | null",
+          },
+        ],
+      },
+    },
+    null,
+    2,
+  );
+}
+
 // ── Initial contact parse (from first interaction) ────────────────────────────
 
 export const PARSE_CONTACT_SYSTEM_PROMPT = `You are a B2B relationship intelligence assistant. You read a raw note about a new contact and extract initial identity information.

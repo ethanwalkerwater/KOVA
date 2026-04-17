@@ -127,11 +127,24 @@ export async function POST(request: NextRequest) {
   // Update last_interaction_at via helper function
   await supabase.rpc("touch_contact", { p_contact_id: contact_id });
 
+  // Fetch the updated contact + sections to return to the client
+  const [{ data: updatedContact }, { data: updatedSections }] = await Promise.all([
+    supabase.from("contacts").select("*").eq("id", contact_id).single(),
+    supabase
+      .from("sections")
+      .select("*")
+      .eq("contact_id", contact_id)
+      .order("slug", { ascending: true }),
+  ]);
+
   return NextResponse.json({
     success: sectionErrors.length === 0,
     sectionErrors: sectionErrors.length > 0 ? sectionErrors : undefined,
     validationErrors: validation.valid ? undefined : validation.errors,
     estimatedCostUsd,
     metadata_sources,
+    // Return updated data so the client can refresh its cache
+    contact: updatedContact,
+    sections: updatedSections ?? [],
   });
 }
