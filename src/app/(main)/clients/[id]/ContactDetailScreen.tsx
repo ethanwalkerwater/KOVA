@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, Zap, Loader2, Plus, RefreshCw, Globe } from "lucide-react";
+import { ChevronLeft, Zap, Loader2, Plus, RefreshCw, Globe, Pencil } from "lucide-react";
 import { StatusBar, Avatar, Chip } from "@/components/ui";
 import { SectionRenderer } from "@/components/contacts/SectionRenderer";
 import { InteractionTimeline } from "@/components/contacts/InteractionTimeline";
+import { ContactEditSheet } from "@/components/contacts/ContactEditSheet";
 import { useContact } from "@/lib/hooks/useContact";
 import { useRegenerate } from "@/lib/hooks/useRegenerate";
 import { useUIStore } from "@/stores/ui";
@@ -65,6 +66,7 @@ function getScoreColor(score: number): string {
 export function ContactDetailScreen({ id }: Props) {
   const [activeTab, setActiveTab] = useState<"info" | "notes">("info");
   const [enriching, setEnriching] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const { openCapture } = useUIStore();
   const { addToast } = useUIStore();
 
@@ -181,6 +183,15 @@ export function ContactDetailScreen({ id }: Props) {
         </Link>
         <span className="text-fg-primary font-semibold text-sm">Contact</span>
         <div className="flex items-center gap-2">
+          {/* Edit contact */}
+          <button
+            onClick={() => setEditOpen(true)}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-secondary"
+            aria-label="Edit contact"
+            title="Edit contact"
+          >
+            <Pencil className="w-4 h-4 text-fg-secondary" />
+          </button>
           {/* Regenerate AI profile */}
           <button
             onClick={() => void regenerate()}
@@ -350,6 +361,13 @@ export function ContactDetailScreen({ id }: Props) {
           )}
         </div>
       )}
+
+      {/* Edit contact bottom sheet */}
+      <ContactEditSheet
+        contact={contact}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+      />
     </div>
   );
 }

@@ -152,7 +152,7 @@ export function HomeScreen() {
           onSend={(text) => openCapture(undefined, text)}
           onVoiceStart={() => openCapture()}
           onVoiceEnd={() => {}}
-          onCameraPress={() => {}}
+          onCameraPress={() => openCapture(undefined, undefined, "scan")}
           onPlusPress={() => openCapture()}
           placeholder="Tell me about someone you just met..."
         />

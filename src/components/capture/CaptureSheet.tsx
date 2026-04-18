@@ -3,18 +3,23 @@
 /**
  * CaptureSheet — bottom sheet for creating new contacts or interactions.
  *
- * Two modes:
- *   "new_contact"  — user enters name + raw note (voice or text) → POST /api/contacts
- *   "add_note"     — user adds a note to an existing contact  → POST /api/interactions
+ * Three modes:
+ *   "text"  — typed note → text_note or voice_memo interaction
+ *   "voice" — hold-to-record voice memo → voice_memo interaction
+ *   "scan"  — photo / business card → OCR → card_scan or photo interaction
  *
- * Controlled by useUIStore (captureOpen / captureContactId).
+ * Contact scope:
+ *   "new_contact"  — creates a new contact + first interaction  → POST /api/contacts
+ *   "add_note"     — appends an interaction to an existing contact → POST /api/interactions
+ *
+ * Controlled by useUIStore (captureOpen / captureContactId / captureInitialText).
  *
  * Phase 1: submit shows a "connect Supabase" toast and closes.
  * Phase 2: real API calls, optimistic updates via useInteractions.
  */
 
-import { useEffect, useReducer, useRef } from "react";
-import { X, Mic, Type, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { useEffect, useReducer, useRef, useCallback } from "react";
+import { X, Mic, Type, Loader2, CheckCircle2, AlertCircle, Camera, ScanLine, ImageIcon } from "lucide-react";
 import { useUIStore } from "@/stores/ui";
 import { useContactsStore } from "@/stores/contacts";
 import { useVoiceInput } from "@/lib/hooks/useVoiceInput";
@@ -22,7 +27,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 import { cn } from "@/lib/utils/cn";
 import type { InteractionType } from "@/types/interaction";
 
-type InputMode = "voice" | "text";
+type InputMode = "voice" | "text" | "scan";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -33,27 +38,41 @@ interface FormState {
   sourceContext: string;
   submitStatus: "idle" | "submitting" | "success" | "error";
   submitMessage?: string;
+  // Scan-mode state
+  scanImageFile: File | null;
+  scanPreviewUrl: string | null;
+  scanOcrStatus: "idle" | "processing" | "done" | "error";
+  scanOcrError: string | null;
 }
 
 type FormAction =
-  | { type: "reset"; initialText?: string }
+  | { type: "reset"; initialText?: string; initialMode?: InputMode }
   | { type: "set_mode"; mode: InputMode }
   | { type: "set_name"; value: string }
   | { type: "set_text"; value: string }
   | { type: "set_context"; value: string }
   | { type: "set_submitting" }
   | { type: "set_success"; message: string }
-  | { type: "set_error"; message: string };
+  | { type: "set_error"; message: string }
+  | { type: "set_scan_image"; file: File; previewUrl: string }
+  | { type: "set_scan_processing" }
+  | { type: "set_scan_done"; extractedText: string; suggestedName: string | null }
+  | { type: "set_scan_error"; error: string }
+  | { type: "clear_scan" };
 
 function formReducer(state: FormState, action: FormAction): FormState {
   switch (action.type) {
     case "reset":
       return {
-        mode: "text",
+        mode: action.initialMode ?? "text",
         nameInput: "",
         textInput: action.initialText ?? "",
         sourceContext: "",
         submitStatus: "idle",
+        scanImageFile: null,
+        scanPreviewUrl: null,
+        scanOcrStatus: "idle",
+        scanOcrError: null,
       };
     case "set_mode":
       return { ...state, mode: action.mode };
@@ -69,6 +88,36 @@ function formReducer(state: FormState, action: FormAction): FormState {
       return { ...state, submitStatus: "success", submitMessage: action.message };
     case "set_error":
       return { ...state, submitStatus: "error", submitMessage: action.message };
+    case "set_scan_image":
+      return {
+        ...state,
+        scanImageFile: action.file,
+        scanPreviewUrl: action.previewUrl,
+        scanOcrStatus: "idle",
+        scanOcrError: null,
+        textInput: "",
+      };
+    case "set_scan_processing":
+      return { ...state, scanOcrStatus: "processing", scanOcrError: null };
+    case "set_scan_done":
+      return {
+        ...state,
+        scanOcrStatus: "done",
+        textInput: action.extractedText,
+        // Prefill name if we got one and the field is empty
+        nameInput: state.nameInput || action.suggestedName || "",
+      };
+    case "set_scan_error":
+      return { ...state, scanOcrStatus: "error", scanOcrError: action.error };
+    case "clear_scan":
+      return {
+        ...state,
+        scanImageFile: null,
+        scanPreviewUrl: null,
+        scanOcrStatus: "idle",
+        scanOcrError: null,
+        textInput: "",
+      };
   }
 }
 
@@ -78,12 +127,17 @@ const INITIAL_FORM: FormState = {
   textInput: "",
   sourceContext: "",
   submitStatus: "idle",
+  scanImageFile: null,
+  scanPreviewUrl: null,
+  scanOcrStatus: "idle",
+  scanOcrError: null,
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function CaptureSheet() {
-  const { captureOpen, captureContactId, captureInitialText, closeCapture } = useUIStore();
+  const { captureOpen, captureContactId, captureInitialText, captureMode, closeCapture } =
+    useUIStore();
   const { contacts } = useContactsStore();
   const { addToast } = useUIStore();
 
@@ -91,32 +145,103 @@ export function CaptureSheet() {
 
   const voice = useVoiceInput();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Which contact this note is for (set = existing contact, null = new contact)
   const targetContact = captureContactId ? contacts[captureContactId] : null;
   const isNewContact = !captureContactId;
 
   // Reset form + voice state whenever the sheet transitions open/closed.
-  // On close we also need to abort any in-flight recording so the mic
-  // indicator turns off and we don't leak the MediaStream.
   useEffect(() => {
     if (captureOpen) {
-      dispatch({ type: "reset", initialText: captureInitialText ?? undefined });
+      const initialMode: InputMode =
+        captureMode === "scan" ? "scan" : "text";
+      dispatch({
+        type: "reset",
+        initialText: captureInitialText ?? undefined,
+        initialMode,
+      });
       voice.reset();
-      setTimeout(() => textareaRef.current?.focus(), 150);
+      if (initialMode === "text") {
+        setTimeout(() => textareaRef.current?.focus(), 150);
+      }
     } else {
       voice.reset();
+      // Revoke any object URLs to prevent memory leaks
+      if (form.scanPreviewUrl) {
+        URL.revokeObjectURL(form.scanPreviewUrl);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureOpen, captureInitialText]);
+  }, [captureOpen, captureInitialText, captureMode]);
 
   // When voice transcription completes, populate the text area
   useEffect(() => {
     if (voice.state === "done" && voice.transcript) {
       dispatch({ type: "set_text", value: voice.transcript });
       dispatch({ type: "set_mode", mode: "text" });
+      voice.reset();
     }
   }, [voice.state, voice.transcript]);
+
+  // ── OCR ─────────────────────────────────────────────────────────────────────
+
+  const runOcr = useCallback(async (file: File) => {
+    if (!isSupabaseConfigured()) {
+      // Phase 1 demo: fake OCR result
+      dispatch({ type: "set_scan_processing" });
+      await new Promise((r) => setTimeout(r, 1500));
+      dispatch({
+        type: "set_scan_done",
+        extractedText:
+          "# Demo Card\n\nThis is a simulated OCR result.\n\n**Name:** John Demo\n**Title:** VP of Sales\n**Company:** Acme Corp\n**Email:** john@acme.com\n**Phone:** +1 555 0100\n\nSource: Business card (demo mode)",
+        suggestedName: "John Demo",
+      });
+      return;
+    }
+
+    dispatch({ type: "set_scan_processing" });
+
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      fd.append("hint", "business card or professional photo");
+
+      const res = await fetch("/api/ocr", { method: "POST", body: fd });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "OCR failed");
+      }
+
+      const data = (await res.json()) as {
+        extracted_text: string;
+        suggested_name: string | null;
+        suggested_type: "card_scan" | "photo";
+      };
+
+      dispatch({
+        type: "set_scan_done",
+        extractedText: data.extracted_text,
+        suggestedName: data.suggested_name,
+      });
+    } catch (err) {
+      dispatch({
+        type: "set_scan_error",
+        error: err instanceof Error ? err.message : "OCR failed",
+      });
+    }
+  }, []);
+
+  function handleImageSelected(file: File) {
+    if (!file.type.startsWith("image/")) {
+      addToast("Please select an image file", "error");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    dispatch({ type: "set_scan_image", file, previewUrl });
+    void runOcr(file);
+  }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
@@ -132,6 +257,11 @@ export function CaptureSheet() {
 
     dispatch({ type: "set_submitting" });
 
+    // Determine interaction type based on mode
+    let interactionType: InteractionType = "text_note";
+    if (form.mode === "voice") interactionType = "voice_memo";
+    else if (form.mode === "scan" && form.scanImageFile) interactionType = "card_scan";
+
     try {
       if (isNewContact) {
         const name = form.nameInput.trim() || "Unknown contact";
@@ -141,7 +271,7 @@ export function CaptureSheet() {
           body: JSON.stringify({
             name,
             raw_content: content,
-            type: (form.mode === "voice" ? "voice_memo" : "text_note") as InteractionType,
+            type: interactionType,
             source_context: form.sourceContext.trim() || undefined,
           }),
         });
@@ -160,7 +290,7 @@ export function CaptureSheet() {
           body: JSON.stringify({
             contact_id: captureContactId,
             raw_content: content,
-            type: (form.mode === "voice" ? "voice_memo" : "text_note") as InteractionType,
+            type: interactionType,
             source_context: form.sourceContext.trim() || undefined,
           }),
         });
@@ -190,10 +320,42 @@ export function CaptureSheet() {
   const isTranscribing = voice.state === "transcribing";
   const isSubmitting = form.submitStatus === "submitting";
   const isSuccess = form.submitStatus === "success";
-  const canSubmit = form.textInput.trim().length > 0 && !isSubmitting && !isSuccess;
+  const isOcrProcessing = form.scanOcrStatus === "processing";
+
+  // Can submit when we have content and aren't busy
+  const canSubmit =
+    form.textInput.trim().length > 0 &&
+    !isSubmitting &&
+    !isSuccess &&
+    !isOcrProcessing;
 
   return (
     <>
+      {/* Hidden file inputs — one for gallery, one for camera */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImageSelected(file);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImageSelected(file);
+          e.target.value = "";
+        }}
+      />
+
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 z-40 transition-opacity"
@@ -229,7 +391,10 @@ export function CaptureSheet() {
           {/* Contact name (new contact only) */}
           {isNewContact && (
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="capture-name" className="text-fg-secondary text-xs font-medium uppercase tracking-wide">
+              <label
+                htmlFor="capture-name"
+                className="text-fg-secondary text-xs font-medium uppercase tracking-wide"
+              >
                 Contact name
               </label>
               <input
@@ -270,17 +435,31 @@ export function CaptureSheet() {
               <Mic className="w-3.5 h-3.5" />
               Voice
             </button>
+            <button
+              onClick={() => dispatch({ type: "set_mode", mode: "scan" })}
+              className={cn(
+                "flex items-center gap-1.5 px-3 h-8 rounded-lg text-sm font-medium transition-colors",
+                form.mode === "scan"
+                  ? "bg-accent text-fg-inverse"
+                  : "bg-surface-secondary text-fg-secondary",
+              )}
+            >
+              <ScanLine className="w-3.5 h-3.5" />
+              Scan
+            </button>
           </div>
 
-          {/* Text input */}
+          {/* ── Text mode ─────────────────────────────────────────────────── */}
           {form.mode === "text" && (
             <textarea
               ref={textareaRef}
               value={form.textInput}
               onChange={(e) => dispatch({ type: "set_text", value: e.target.value })}
-              placeholder={isNewContact
-                ? "Tell me about this person — how you met, what they do, anything notable..."
-                : "What happened? What did they say? Any updates..."}
+              placeholder={
+                isNewContact
+                  ? "Tell me about this person — how you met, what they do, anything notable..."
+                  : "What happened? What did they say? Any updates..."
+              }
               rows={5}
               className="w-full rounded-2xl border border-border bg-surface-secondary px-4 py-3 text-fg-primary text-sm
                          placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent
@@ -288,7 +467,7 @@ export function CaptureSheet() {
             />
           )}
 
-          {/* Voice input */}
+          {/* ── Voice mode ────────────────────────────────────────────────── */}
           {form.mode === "voice" && (
             <div className="flex flex-col items-center gap-4">
               {/* Transcript preview */}
@@ -316,8 +495,8 @@ export function CaptureSheet() {
                   isRecording
                     ? "bg-red-500 scale-110 shadow-lg shadow-red-500/30"
                     : isTranscribing
-                    ? "bg-border"
-                    : "bg-accent shadow-lg shadow-accent/30",
+                      ? "bg-border"
+                      : "bg-accent shadow-lg shadow-accent/30",
                 )}
                 aria-label={isRecording ? "Release to stop" : "Hold to record"}
               >
@@ -340,9 +519,113 @@ export function CaptureSheet() {
             </div>
           )}
 
+          {/* ── Scan mode ─────────────────────────────────────────────────── */}
+          {form.mode === "scan" && (
+            <div className="flex flex-col gap-3">
+              {!form.scanImageFile ? (
+                /* Image picker — two buttons: camera and gallery */
+                <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border bg-surface-secondary p-6">
+                  <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+                    <ScanLine className="w-6 h-6 text-accent" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-fg-primary text-sm font-medium">Scan a business card</p>
+                    <p className="text-fg-muted text-xs mt-0.5">
+                      or any image with contact info
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-accent text-fg-inverse text-sm font-medium"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      Camera
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-surface-primary border border-border text-fg-secondary text-sm font-medium"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      Gallery
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Image preview + OCR result */
+                <div className="flex flex-col gap-3">
+                  {/* Preview row */}
+                  <div className="flex items-start gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={form.scanPreviewUrl!}
+                      alt="Card preview"
+                      className="w-24 h-16 object-cover rounded-xl border border-border shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      {isOcrProcessing ? (
+                        <div className="flex items-center gap-2 text-fg-muted text-sm">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Reading card...
+                        </div>
+                      ) : form.scanOcrStatus === "done" ? (
+                        <div className="flex items-center gap-1.5 text-accent-green text-sm">
+                          <CheckCircle2 className="w-4 h-4" />
+                          Card read
+                        </div>
+                      ) : form.scanOcrStatus === "error" ? (
+                        <div className="flex items-center gap-1.5 text-red-500 text-xs">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          {form.scanOcrError}
+                        </div>
+                      ) : null}
+                      <button
+                        onClick={() => dispatch({ type: "clear_scan" })}
+                        className="text-fg-muted text-xs mt-1 hover:text-fg-secondary"
+                      >
+                        Remove image
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Extracted text — editable */}
+                  {form.textInput && (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-fg-secondary text-xs font-medium uppercase tracking-wide">
+                        Extracted info
+                        <span className="text-fg-muted font-normal normal-case ml-1">(editable)</span>
+                      </p>
+                      <textarea
+                        value={form.textInput}
+                        onChange={(e) => dispatch({ type: "set_text", value: e.target.value })}
+                        rows={6}
+                        className="w-full rounded-2xl border border-border bg-surface-secondary px-4 py-3 text-fg-primary text-sm
+                                   placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent
+                                   resize-none font-mono text-xs"
+                      />
+                    </div>
+                  )}
+
+                  {/* Retry OCR if it failed */}
+                  {form.scanOcrStatus === "error" && (
+                    <button
+                      onClick={() => form.scanImageFile && void runOcr(form.scanImageFile)}
+                      className="text-accent text-xs font-medium"
+                    >
+                      Try again
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Source context */}
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="capture-context" className="text-fg-secondary text-xs font-medium uppercase tracking-wide">
+            <label
+              htmlFor="capture-context"
+              className="text-fg-secondary text-xs font-medium uppercase tracking-wide"
+            >
               Where / context
               <span className="text-fg-muted font-normal normal-case ml-1">(optional)</span>
             </label>
@@ -357,7 +640,7 @@ export function CaptureSheet() {
             />
           </div>
 
-          {/* Error */}
+          {/* Submit error */}
           {form.submitStatus === "error" && (
             <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl px-4 py-3 text-sm">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -379,11 +662,19 @@ export function CaptureSheet() {
             )}
           >
             {isSubmitting ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+              </>
             ) : isSuccess ? (
-              <><CheckCircle2 className="w-4 h-4" /> {form.submitMessage}</>
+              <>
+                <CheckCircle2 className="w-4 h-4" /> {form.submitMessage}
+              </>
+            ) : form.mode === "scan" && form.scanImageFile ? (
+              isNewContact ? "Add Contact from Card" : "Save Card Scan"
+            ) : isNewContact ? (
+              "Add Contact"
             ) : (
-              isNewContact ? "Add Contact" : "Save Note"
+              "Save Note"
             )}
           </button>
         </div>

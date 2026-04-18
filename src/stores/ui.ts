@@ -15,6 +15,8 @@ export interface Toast {
   variant: ToastVariant;
 }
 
+export type CaptureMode = "text" | "scan";
+
 interface UIState {
   // ── Capture modal ──────────────────────────────────────────────────────────
   /** Whether the new-interaction capture sheet is open. */
@@ -23,8 +25,10 @@ interface UIState {
   captureContactId: string | null;
   /** Optional text to pre-fill when the sheet opens (e.g. from ChatInputBar). */
   captureInitialText: string | null;
+  /** Initial tab to activate in the capture sheet. */
+  captureMode: CaptureMode;
 
-  openCapture: (contactId?: string, initialText?: string) => void;
+  openCapture: (contactId?: string, initialText?: string, mode?: CaptureMode) => void;
   closeCapture: () => void;
 
   // ── Search ─────────────────────────────────────────────────────────────────
@@ -48,15 +52,22 @@ export const useUIStore = create<UIState>((set) => ({
   captureOpen: false,
   captureContactId: null,
   captureInitialText: null,
+  captureMode: "text",
 
-  openCapture: (contactId, initialText) =>
+  openCapture: (contactId, initialText, mode = "text") =>
     set({
       captureOpen: true,
       captureContactId: contactId ?? null,
       captureInitialText: initialText ?? null,
+      captureMode: mode,
     }),
   closeCapture: () =>
-    set({ captureOpen: false, captureContactId: null, captureInitialText: null }),
+    set({
+      captureOpen: false,
+      captureContactId: null,
+      captureInitialText: null,
+      captureMode: "text",
+    }),
 
   contactSearchQuery: "",
   setContactSearchQuery: (query) => set({ contactSearchQuery: query }),
