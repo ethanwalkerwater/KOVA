@@ -104,8 +104,43 @@ export function ContactDetailScreen({ id }: Props) {
     return (
       <div className="flex flex-col h-full bg-surface-primary">
         <StatusBar />
-        <div className="flex items-center justify-center flex-1">
-          <Loader2 className="w-6 h-6 text-fg-muted animate-spin" />
+
+        {/* Back button row */}
+        <div className="flex items-center px-3 py-2">
+          <Link href="/clients" className="w-9 h-9 flex items-center justify-center rounded-full">
+            <ChevronLeft className="w-5 h-5 text-fg-primary" />
+          </Link>
+        </div>
+
+        {/* Skeleton that mirrors the real layout so the page doesn't reflow
+            once data lands. Uses bg-surface-secondary blocks with a subtle
+            pulse — cheaper than a spinner, preserves perceived structure. */}
+        <div className="flex-1 overflow-y-auto px-5 pb-8 animate-pulse">
+          {/* Header: avatar + name + title */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-16 h-16 rounded-full bg-surface-secondary" />
+            <div className="flex-1">
+              <div className="h-5 w-40 bg-surface-secondary rounded mb-2" />
+              <div className="h-3.5 w-56 bg-surface-secondary rounded" />
+            </div>
+          </div>
+
+          {/* Stage chip */}
+          <div className="h-6 w-24 bg-surface-secondary rounded-full mb-5" />
+
+          {/* AI insights card */}
+          <div className="bg-surface-secondary rounded-2xl h-32 mb-4" />
+
+          {/* Tab switcher */}
+          <div className="flex gap-2 mb-4">
+            <div className="h-8 w-16 bg-surface-secondary rounded-lg" />
+            <div className="h-8 w-16 bg-surface-secondary rounded-lg" />
+          </div>
+
+          {/* Section cards */}
+          <div className="bg-surface-secondary rounded-2xl h-24 mb-3" />
+          <div className="bg-surface-secondary rounded-2xl h-24 mb-3" />
+          <div className="bg-surface-secondary rounded-2xl h-24" />
         </div>
       </div>
     );

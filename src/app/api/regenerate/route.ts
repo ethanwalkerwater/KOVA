@@ -15,6 +15,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runTier2 } from "@/lib/ai/regenerate";
 import type { Interaction } from "@/types/interaction";
+import type { Database } from "@/types/database";
+
+type ContactUpdate = Database["public"]["Tables"]["contacts"]["Update"];
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -86,13 +89,23 @@ export async function POST(request: NextRequest) {
     console.warn("[regenerate] Validation warnings for contact", contact_id, validation.errors);
   }
 
-  // Write metadata to contacts table
+  // Write metadata to contacts table.
+  // Destructure out any application-level join fields (interactions, sections)
+  // that live on the Contact type but are NOT database columns — passing them
+  // to Supabase's update() would trigger a RejectExcessProperties type error.
   const { metadata, metadata_sources } = output;
-  if (Object.keys(metadata).length > 0) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { interactions: _i, sections: _s, ...dbMetadata } = metadata as {
+    interactions?: unknown;
+    sections?: unknown;
+    [key: string]: unknown;
+  };
+
+  if (Object.keys(dbMetadata).length > 0) {
     const { error: metaError } = await supabase
       .from("contacts")
       .update({
-        ...metadata,
+        ...(dbMetadata as ContactUpdate),
         updated_at: new Date().toISOString(),
       })
       .eq("id", contact_id);

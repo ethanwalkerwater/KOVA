@@ -15,6 +15,9 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
+
+type SectionUpdate = Database["public"]["Tables"]["sections"]["Update"];
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -59,7 +62,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Section not found" }, { status: 404 });
   }
 
-  const update: Record<string, unknown> = {};
+  const update: SectionUpdate = {};
 
   // Only allow override fields to be patched here
   if ("user_overrides_md" in body) {

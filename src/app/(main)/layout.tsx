@@ -1,6 +1,7 @@
 import { TabBar } from "@/components/ui";
 import { ToastStack } from "@/components/ui/ToastStack";
 import { CaptureSheet } from "@/components/capture/CaptureSheet";
+import { ErrorBoundary } from "@/components/providers/ErrorBoundary";
 import type { ReactNode } from "react";
 
 export default function MainLayout({ children }: { children: ReactNode }) {
@@ -12,7 +13,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
        * Screens that are simple scrolling pages use the natural document flow.
        * pb-[77px] ensures content is never hidden behind the TabBar.
        */}
-      <main className="flex-1 overflow-y-auto pb-[77px] min-h-0">{children}</main>
+      <main className="flex-1 overflow-y-auto pb-[77px] min-h-0">
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </main>
       <TabBar />
       {/* CaptureSheet + Toasts — global, mounted once, controlled by UIStore */}
       <CaptureSheet />

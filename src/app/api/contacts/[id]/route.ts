@@ -27,6 +27,9 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
+
+type ContactUpdate = Database["public"]["Tables"]["contacts"]["Update"];
 
 // Fields that callers are allowed to PATCH directly (not AI-managed)
 const PATCHABLE_FIELDS = new Set([
@@ -92,11 +95,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Strip any fields callers shouldn't update directly
-  const update: Record<string, unknown> = {};
+  // Strip any fields callers shouldn't update directly.
+  // Typed as ContactUpdate from the start so Supabase's RejectExcessProperties
+  // check passes. We cast to Record<string, unknown> only for the dynamic write
+  // loop — PATCHABLE_FIELDS is the runtime allowlist.
+  const update = {} as ContactUpdate;
   for (const [key, value] of Object.entries(body)) {
     if (PATCHABLE_FIELDS.has(key)) {
-      update[key] = value;
+      (update as Record<string, unknown>)[key] = value;
     }
   }
 
@@ -104,7 +110,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "No patchable fields provided" }, { status: 400 });
   }
 
-  update.updated_at = new Date().toISOString();
+  (update as Record<string, unknown>).updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("contacts")

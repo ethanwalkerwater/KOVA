@@ -45,6 +45,7 @@ export function MeScreen() {
   const { addToast } = useUIStore();
   const contactCount = useContactsStore((s) => Object.keys(s.contacts).length);
   const [exporting, setExporting] = useState(false);
+  const [showExportChoice, setShowExportChoice] = useState(false);
 
   // Resolve display values: real user in Phase 2, demo values in Phase 1
   const displayName = user?.user_metadata?.display_name as string | undefined
@@ -66,6 +67,7 @@ export function MeScreen() {
       }
 
       setExporting(true);
+      setShowExportChoice(false);
       try {
         const res = await fetch(`/api/export?format=${format}`);
         if (!res.ok) throw new Error("Export failed");
@@ -145,40 +147,61 @@ export function MeScreen() {
           const Icon = item.icon;
           const isLast = index === MENU_ITEMS.length - 1;
 
+          const isExportItem = item.label === "Export Contacts";
+
           const handleClick = () => {
-            if (item.label === "Export Contacts") {
-              // Show inline CSV/JSON choice using two quick toasts isn't ideal,
-              // so we just default to CSV — users who want JSON can tap again.
-              void handleExport("csv");
+            if (isExportItem) {
+              setShowExportChoice((v) => !v);
             } else {
               addToast(`${item.label} — coming soon`, "info");
             }
           };
 
-          const isExportItem = item.label === "Export Contacts";
-
           return (
-            <button
-              key={item.label}
-              disabled={isExportItem && exporting}
-              className={`w-full flex items-center gap-3 py-4 px-5 text-left ${
-                isLast ? "" : "border-b border-border-light"
-              } disabled:opacity-50`}
-              onClick={handleClick}
-            >
-              {isExportItem && exporting ? (
-                <Loader2 className="w-5 h-5 text-fg-muted shrink-0 animate-spin" />
-              ) : (
-                <Icon className="w-5 h-5 text-fg-muted shrink-0" />
+            <div key={item.label} className={isLast ? "" : "border-b border-border-light"}>
+              <button
+                disabled={isExportItem && exporting}
+                className="w-full flex items-center gap-3 py-4 px-5 text-left disabled:opacity-50"
+                onClick={handleClick}
+              >
+                {isExportItem && exporting ? (
+                  <Loader2 className="w-5 h-5 text-fg-muted shrink-0 animate-spin" />
+                ) : (
+                  <Icon className="w-5 h-5 text-fg-muted shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-fg-primary text-sm font-medium">{item.label}</p>
+                  <p className="text-fg-muted text-xs">
+                    {isExportItem ? "Choose CSV or JSON" : item.sublabel}
+                  </p>
+                </div>
+                <ChevronRight
+                  className={`w-4 h-4 text-fg-muted shrink-0 transition-transform ${
+                    isExportItem && showExportChoice ? "rotate-90" : ""
+                  }`}
+                />
+              </button>
+
+              {/* Inline CSV/JSON chooser — appears under the Export row */}
+              {isExportItem && showExportChoice && (
+                <div className="flex gap-2 px-5 pb-4">
+                  <button
+                    disabled={exporting}
+                    onClick={() => void handleExport("csv")}
+                    className="flex-1 h-10 rounded-xl bg-surface-secondary text-fg-primary text-sm font-medium border border-border hover:bg-border-light disabled:opacity-50"
+                  >
+                    CSV
+                  </button>
+                  <button
+                    disabled={exporting}
+                    onClick={() => void handleExport("json")}
+                    className="flex-1 h-10 rounded-xl bg-surface-secondary text-fg-primary text-sm font-medium border border-border hover:bg-border-light disabled:opacity-50"
+                  >
+                    JSON
+                  </button>
+                </div>
               )}
-              <div className="flex-1 min-w-0">
-                <p className="text-fg-primary text-sm font-medium">{item.label}</p>
-                <p className="text-fg-muted text-xs">
-                  {isExportItem ? "Download as CSV (tap) or JSON" : item.sublabel}
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-fg-muted shrink-0" />
-            </button>
+            </div>
           );
         })}
       </div>

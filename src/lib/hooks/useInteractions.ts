@@ -113,6 +113,7 @@ export function useInteractions(contactId: string) {
           }
         }
 
+        addToast("Saved", "success");
         return data;
       } catch (err) {
         // Network failed after optimistic write — queue for retry

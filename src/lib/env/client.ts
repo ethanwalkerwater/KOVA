@@ -16,15 +16,16 @@ const clientEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
 
-  // Feature flags
+  // Feature flags (.default must come before .transform; after transform the
+  // type is boolean and .default() would expect a boolean, not a string)
   NEXT_PUBLIC_ENABLE_VOICE: z
     .string()
-    .transform((v) => v === "true")
-    .default("true"),
+    .default("true")
+    .transform((v) => v === "true"),
   NEXT_PUBLIC_ENABLE_REGENERATION: z
     .string()
-    .transform((v) => v === "true")
-    .default("true"),
+    .default("true")
+    .transform((v) => v === "true"),
 });
 
 const _parsed = clientEnvSchema.safeParse({

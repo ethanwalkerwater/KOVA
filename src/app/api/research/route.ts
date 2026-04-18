@@ -92,10 +92,15 @@ export async function POST(request: NextRequest) {
     // Use gpt-4o-mini with web search tool for cost efficiency
     const searchModel = process.env.OPENAI_MODEL_FALLBACK ?? "gpt-4o-mini";
 
-    // First: web search to get raw results
+    // First: web search to get raw results.
+    // `stream: false` is explicit so TypeScript narrows to ChatCompletion.
     const searchCompletion = await openai.chat.completions.create({
       model: searchModel,
-      tools: [{ type: "web_search_preview" as "function" }],
+      stream: false,
+      // web_search_preview is an OpenAI Responses API tool, not a standard
+      // ChatCompletions function type — assert to satisfy the SDK types.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tools: [{ type: "web_search_preview" }] as any,
       tool_choice: "auto",
       messages: [
         {
@@ -103,7 +108,7 @@ export async function POST(request: NextRequest) {
           content: `Search for professional information about: ${searchQuery}. Focus on their role, company, recent activity, and anything useful for a B2B sales context.`,
         },
       ],
-    } as Parameters<typeof openai.chat.completions.create>[0]);
+    });
 
     // Extract text content from the search response
     const searchMessage = searchCompletion.choices[0].message;
@@ -115,9 +120,11 @@ export async function POST(request: NextRequest) {
       rawSearchResults = `Search performed for: ${searchQuery} (results integrated below)`;
     }
 
-    // Second: synthesize the search results into a structured note
+    // Second: synthesize the search results into a structured note.
+    // `stream: false` so TypeScript narrows to ChatCompletion.
     const synthesisCompletion = await openai.chat.completions.create({
       model: searchModel,
+      stream: false,
       messages: [
         { role: "system", content: WEB_RESEARCH_SYSTEM_PROMPT },
         {

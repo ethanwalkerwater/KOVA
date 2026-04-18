@@ -71,9 +71,16 @@ export async function POST(request: NextRequest) {
     const model = process.env.OPENAI_MODEL_FALLBACK ?? "gpt-4o-mini";
 
     // Step 1: Web search
+    // NOTE: `stream: false` is explicit so TypeScript narrows to ChatCompletion
+    // (not Stream<ChatCompletionChunk>). Without it, the cast to Parameters[0]
+    // widens to the streaming overload and `.choices` becomes a type error.
     const searchCompletion = await openai.chat.completions.create({
       model,
-      tools: [{ type: "web_search_preview" as "function" }],
+      stream: false,
+      // web_search_preview is an OpenAI Responses API tool — not a standard
+      // ChatCompletions function, so we use a type assertion here.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tools: [{ type: "web_search_preview" }] as any,
       tool_choice: "auto",
       messages: [
         {
@@ -81,7 +88,7 @@ export async function POST(request: NextRequest) {
           content: `Find professionals matching this description: ${query.trim()}. Search for real people with their names, titles, companies, and relevant context for B2B sales outreach.`,
         },
       ],
-    } as Parameters<typeof openai.chat.completions.create>[0]);
+    });
 
     rawSearchResults = searchCompletion.choices[0].message.content ?? "";
 

@@ -46,8 +46,6 @@ const CSV_HEADERS = [
   "created_at",
 ] as const;
 
-type CsvField = (typeof CSV_HEADERS)[number];
-
 function escapeCell(value: unknown): string {
   if (value === null || value === undefined) return "";
   const str = Array.isArray(value) ? value.join("; ") : String(value);
@@ -63,6 +61,7 @@ function buildCsv(contacts: Contact[]): string {
 
   for (const c of contacts) {
     const row = CSV_HEADERS.map((field) => {
+      // CSV_HEADERS is a const tuple of Contact keys, so this cast is safe.
       const value = c[field as keyof Contact];
       return escapeCell(value);
     });
@@ -120,6 +119,3 @@ export async function GET(request: NextRequest) {
     },
   });
 }
-
-// Unused field type — suppress unused import warning
-void (null as unknown as CsvField);

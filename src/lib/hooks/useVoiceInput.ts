@@ -52,11 +52,29 @@ export function useVoiceInput(): UseVoiceInputReturn {
     Boolean(navigator.mediaDevices?.getUserMedia);
 
   const reset = useCallback(() => {
+    // Abort any in-flight recording and release the mic stream so the
+    // browser's recording indicator turns off and we don't leak audio
+    // frames when the caller resets mid-record (e.g. closing the sheet).
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      try {
+        recorder.onstop = null;
+        recorder.ondataavailable = null;
+        recorder.stop();
+      } catch {
+        // ignore — already stopping
+      }
+    }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    mediaRecorderRef.current = null;
+    startTimeRef.current = null;
+    chunksRef.current = [];
+
     setState("idle");
     setTranscript(null);
     setError(null);
     setDurationMs(null);
-    chunksRef.current = [];
   }, []);
 
   const start = useCallback(async () => {

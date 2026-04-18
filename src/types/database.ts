@@ -40,6 +40,8 @@ export interface Database {
           subscription_tier?: string;
           updated_at?: string;
         };
+        // Required by Supabase's GenericTable constraint
+        Relationships: [];
       };
       contacts: {
         Row: {
@@ -114,7 +116,41 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["contacts"]["Insert"]>;
+        Update: {
+          id?: string;
+          owner_id?: string;
+          name?: string;
+          title?: string | null;
+          company?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          linkedin_url?: string | null;
+          location?: string | null;
+          stage?: string;
+          importance?: string;
+          tags?: string[];
+          source?: string | null;
+          last_interaction_at?: string | null;
+          next_followup_at?: string | null;
+          followup_reason?: string | null;
+          company_industry?: string | null;
+          company_size?: string | null;
+          company_stage?: string | null;
+          company_hq?: string | null;
+          company_description?: string | null;
+          deal_value?: number | null;
+          deal_currency?: string;
+          deal_probability?: number | null;
+          expected_close_date?: string | null;
+          ai_summary?: string | null;
+          relationship_score?: number | null;
+          key_topics?: string[];
+          suggested_next_step?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        // Required by Supabase's GenericTable constraint
+        Relationships: [];
       };
       interactions: {
         Row: {
@@ -140,6 +176,8 @@ export interface Database {
           created_at?: string;
         };
         Update: never; // interactions are immutable
+        // Required by Supabase's GenericTable constraint
+        Relationships: [];
       };
       sections: {
         Row: {
@@ -170,11 +208,31 @@ export interface Database {
           overridden_at?: string | null;
           override_reason?: string | null;
         };
-        Update: Partial<Database["public"]["Tables"]["sections"]["Insert"]>;
+        Update: {
+          id?: string;
+          contact_id?: string;
+          slug?: string;
+          title?: string;
+          content_md?: string;
+          summary?: string | null;
+          regenerated_at?: string;
+          interaction_count?: number;
+          source_interaction_ids?: string[] | null;
+          user_overrides_md?: string | null;
+          overridden_at?: string | null;
+          override_reason?: string | null;
+        };
+        // Required by Supabase's GenericTable constraint
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      touch_contact: {
+        Args: { p_contact_id: string };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
   };
 }

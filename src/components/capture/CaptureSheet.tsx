@@ -96,12 +96,16 @@ export function CaptureSheet() {
   const targetContact = captureContactId ? contacts[captureContactId] : null;
   const isNewContact = !captureContactId;
 
-  // Reset form when sheet opens
+  // Reset form + voice state whenever the sheet transitions open/closed.
+  // On close we also need to abort any in-flight recording so the mic
+  // indicator turns off and we don't leak the MediaStream.
   useEffect(() => {
     if (captureOpen) {
       dispatch({ type: "reset", initialText: captureInitialText ?? undefined });
       voice.reset();
       setTimeout(() => textareaRef.current?.focus(), 150);
+    } else {
+      voice.reset();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [captureOpen, captureInitialText]);

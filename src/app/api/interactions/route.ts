@@ -31,6 +31,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runTier1 } from "@/lib/ai/regenerate";
 import type { Interaction, InteractionType } from "@/types/interaction";
+import type { Database } from "@/types/database";
+
+type ContactUpdate = Database["public"]["Tables"]["contacts"]["Update"];
 
 const VALID_TYPES: InteractionType[] = [
   "voice_memo",
@@ -130,7 +133,7 @@ export async function POST(request: NextRequest) {
       // Apply non-null Tier 1 output to the contact
       if (tier1Result.output && tier1Result.validation.valid) {
         const { output } = tier1Result;
-        const update: Record<string, unknown> = {};
+        const update = {} as ContactUpdate;
 
         if (output.ai_summary) update.ai_summary = output.ai_summary.value;
         if (output.relationship_score) update.relationship_score = output.relationship_score.value;
