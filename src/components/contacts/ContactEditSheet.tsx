@@ -7,12 +7,15 @@
  * triggering a full AI regeneration. Pipeline fields (stage, importance,
  * next_followup_at) are also included.
  *
+ * Also handles contact deletion (with inline confirmation).
+ *
  * Phase 1: shows a "connect Supabase" toast (no-op).
  * Phase 2: PATCH /api/contacts/:id → optimistically updates the store.
+ *          DELETE /api/contacts/:id → removes from store, calls onDelete.
  */
 
-import { useState, useEffect } from "react";
-import { X, Loader2, CheckCircle2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, Loader2, CheckCircle2, Trash2, Plus, Tag } from "lucide-react";
 import { useContactsStore } from "@/stores/contacts";
 import { useUIStore } from "@/stores/ui";
 import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
@@ -23,6 +26,8 @@ interface Props {
   contact: Contact;
   open: boolean;
   onClose: () => void;
+  /** Called after a successful delete so the parent can navigate away. */
+  onDelete?: () => void;
 }
 
 type EditableFields = Pick<
@@ -56,49 +61,57 @@ const IMPORTANCE_OPTIONS: { value: Importance; label: string }[] = [
   { value: "low", label: "Low" },
 ];
 
-export function ContactEditSheet({ contact, open, onClose }: Props) {
-  const { upsertContact } = useContactsStore();
+export function ContactEditSheet({ contact, open, onClose, onDelete }: Props) {
+  const { upsertContact, removeContact } = useContactsStore();
   const { addToast } = useUIStore();
 
-  const [fields, setFields] = useState<EditableFields>({
-    name: contact.name,
-    title: contact.title,
-    company: contact.company,
-    email: contact.email,
-    phone: contact.phone,
-    linkedin_url: contact.linkedin_url,
-    location: contact.location,
-    stage: contact.stage,
-    importance: contact.importance,
-    next_followup_at: contact.next_followup_at,
-    followup_reason: contact.followup_reason,
-  });
+  const [fields, setFields] = useState<EditableFields>(fieldsFrom(contact));
+  const [tags, setTags] = useState<string[]>(contact.tags ?? []);
+  const [tagInput, setTagInput] = useState("");
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Re-sync when contact prop changes (e.g. after regeneration)
   useEffect(() => {
-    setFields({
-      name: contact.name,
-      title: contact.title,
-      company: contact.company,
-      email: contact.email,
-      phone: contact.phone,
-      linkedin_url: contact.linkedin_url,
-      location: contact.location,
-      stage: contact.stage,
-      importance: contact.importance,
-      next_followup_at: contact.next_followup_at,
-      followup_reason: contact.followup_reason,
-    });
+    setFields(fieldsFrom(contact));
+    setTags(contact.tags ?? []);
     setStatus("idle");
     setError(null);
+    setConfirmDelete(false);
+    setTagInput("");
   }, [contact]);
 
-  function set<K extends keyof EditableFields>(key: K, value: EditableFields[K]) {
+  function setField<K extends keyof EditableFields>(key: K, value: EditableFields[K]) {
     setFields((prev) => ({ ...prev, [key]: value || null }));
   }
+
+  // ── Tags ──────────────────────────────────────────────────────────────────
+
+  function addTag(raw: string) {
+    const tag = raw.trim();
+    if (!tag || tags.includes(tag)) return;
+    setTags((prev) => [...prev, tag]);
+    setTagInput("");
+  }
+
+  function removeTag(tag: string) {
+    setTags((prev) => prev.filter((t) => t !== tag));
+  }
+
+  function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag(tagInput);
+    } else if (e.key === "Backspace" && tagInput === "" && tags.length > 0) {
+      setTags((prev) => prev.slice(0, -1));
+    }
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
 
   async function handleSave() {
     if (!fields.name.trim()) {
@@ -119,7 +132,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
       const res = await fetch(`/api/contacts/${contact.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(fields),
+        body: JSON.stringify({ ...fields, tags }),
       });
 
       if (!res.ok) {
@@ -128,10 +141,10 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
       }
 
       const data = (await res.json()) as { contact: Contact };
-      // Patch the store — preserve interactions + sections that aren't returned by PATCH
       upsertContact({
         ...contact,
         ...data.contact,
+        tags: data.contact.tags ?? tags,
         sections: contact.sections ?? [],
         interactions: contact.interactions ?? [],
       });
@@ -146,10 +159,38 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
     }
   }
 
+  // ── Delete ────────────────────────────────────────────────────────────────
+
+  async function handleDelete() {
+    if (!isSupabaseConfigured()) {
+      addToast("Connect Supabase to delete contacts", "info");
+      onClose();
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Delete failed");
+      }
+      removeContact(contact.id);
+      addToast(`${contact.name} deleted`, "success");
+      onClose();
+      onDelete?.();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Delete failed", "error");
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  }
+
   if (!open) return null;
 
   const isSaving = status === "saving";
   const isSuccess = status === "success";
+  const isBlocked = isSaving || isSuccess || deleting;
 
   return (
     <>
@@ -189,7 +230,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
             <input
               type="text"
               value={fields.name}
-              onChange={(e) => set("name", e.target.value)}
+              onChange={(e) => setField("name", e.target.value)}
               placeholder="Full name"
               className={inputCls}
             />
@@ -200,7 +241,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
               <input
                 type="text"
                 value={fields.title ?? ""}
-                onChange={(e) => set("title", e.target.value || null)}
+                onChange={(e) => setField("title", e.target.value || null)}
                 placeholder="VP Sales"
                 className={inputCls}
               />
@@ -209,7 +250,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
               <input
                 type="text"
                 value={fields.company ?? ""}
-                onChange={(e) => set("company", e.target.value || null)}
+                onChange={(e) => setField("company", e.target.value || null)}
                 placeholder="Acme Corp"
                 className={inputCls}
               />
@@ -221,7 +262,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
               <input
                 type="email"
                 value={fields.email ?? ""}
-                onChange={(e) => set("email", e.target.value || null)}
+                onChange={(e) => setField("email", e.target.value || null)}
                 placeholder="name@company.com"
                 className={inputCls}
               />
@@ -230,7 +271,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
               <input
                 type="tel"
                 value={fields.phone ?? ""}
-                onChange={(e) => set("phone", e.target.value || null)}
+                onChange={(e) => setField("phone", e.target.value || null)}
                 placeholder="+86 138 0000 0000"
                 className={inputCls}
               />
@@ -241,7 +282,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
             <input
               type="url"
               value={fields.linkedin_url ?? ""}
-              onChange={(e) => set("linkedin_url", e.target.value || null)}
+              onChange={(e) => setField("linkedin_url", e.target.value || null)}
               placeholder="https://linkedin.com/in/..."
               className={inputCls}
             />
@@ -251,10 +292,64 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
             <input
               type="text"
               value={fields.location ?? ""}
-              onChange={(e) => set("location", e.target.value || null)}
+              onChange={(e) => setField("location", e.target.value || null)}
               placeholder="Shanghai, China"
               className={inputCls}
             />
+          </Field>
+
+          {/* Tags section */}
+          <p className="text-fg-muted text-xs font-medium uppercase tracking-wide pt-2">
+            Tags
+          </p>
+
+          <Field label="Tags">
+            {/* Chip display + inline input */}
+            <div
+              className={cn(
+                "min-h-10 rounded-xl border border-border bg-surface-secondary px-3 py-2",
+                "flex flex-wrap gap-1.5 cursor-text",
+              )}
+              onClick={() => tagInputRef.current?.focus()}
+            >
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 bg-accent-light text-accent text-xs font-medium rounded-full px-2.5 py-0.5"
+                >
+                  <Tag className="w-2.5 h-2.5" />
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                    className="ml-0.5 hover:text-accent/60"
+                    aria-label={`Remove tag ${tag}`}
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </span>
+              ))}
+              <input
+                ref={tagInputRef}
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                onBlur={() => { if (tagInput.trim()) addTag(tagInput); }}
+                placeholder={tags.length === 0 ? "Add tags (Enter to confirm)" : ""}
+                className="flex-1 min-w-[120px] bg-transparent text-fg-primary text-sm placeholder:text-fg-muted focus:outline-none"
+              />
+              {tagInput.trim() && (
+                <button
+                  type="button"
+                  onClick={() => addTag(tagInput)}
+                  className="text-accent"
+                  aria-label="Add tag"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </Field>
 
           {/* Pipeline section */}
@@ -266,7 +361,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
             <Field label="Stage">
               <select
                 value={fields.stage}
-                onChange={(e) => set("stage", e.target.value as PipelineStage)}
+                onChange={(e) => setField("stage", e.target.value as PipelineStage)}
                 className={selectCls}
               >
                 {STAGE_OPTIONS.map((o) => (
@@ -279,7 +374,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
             <Field label="Priority">
               <select
                 value={fields.importance}
-                onChange={(e) => set("importance", e.target.value as Importance)}
+                onChange={(e) => setField("importance", e.target.value as Importance)}
                 className={selectCls}
               >
                 {IMPORTANCE_OPTIONS.map((o) => (
@@ -296,7 +391,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
               type="date"
               value={fields.next_followup_at ? fields.next_followup_at.slice(0, 10) : ""}
               onChange={(e) =>
-                set("next_followup_at", e.target.value ? `${e.target.value}T00:00:00.000Z` : null)
+                setField("next_followup_at", e.target.value ? `${e.target.value}T00:00:00.000Z` : null)
               }
               className={inputCls}
             />
@@ -306,7 +401,7 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
             <input
               type="text"
               value={fields.followup_reason ?? ""}
-              onChange={(e) => set("followup_reason", e.target.value || null)}
+              onChange={(e) => setField("followup_reason", e.target.value || null)}
               placeholder="e.g. Send revised proposal"
               className={inputCls}
             />
@@ -316,16 +411,60 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
           {error && (
             <p className="text-red-600 text-sm bg-red-50 rounded-xl px-4 py-3">{error}</p>
           )}
+
+          {/* Delete zone */}
+          <div className="pt-2 pb-2">
+            {!confirmDelete ? (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                disabled={isBlocked}
+                className="flex items-center gap-2 text-red-500 text-sm font-medium disabled:opacity-40"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Contact
+              </button>
+            ) : (
+              <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+                <p className="text-red-700 text-sm font-medium mb-3">
+                  Delete {contact.name}? This cannot be undone.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleDelete()}
+                    disabled={deleting}
+                    className="flex-1 h-9 rounded-xl bg-red-500 text-white text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
+                  >
+                    {deleting ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
+                    {deleting ? "Deleting..." : "Yes, delete"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={deleting}
+                    className="flex-1 h-9 rounded-xl bg-surface-secondary text-fg-secondary text-sm font-medium disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
         <div className="shrink-0 px-5 pb-[calc(21px+env(safe-area-inset-bottom,0px))] pt-3 border-t border-border-light">
           <button
             onClick={() => void handleSave()}
-            disabled={isSaving || isSuccess}
+            disabled={isBlocked}
             className={cn(
               "w-full h-12 rounded-2xl font-semibold text-sm transition-all flex items-center justify-center gap-2",
-              !isSaving && !isSuccess
+              !isBlocked
                 ? "bg-accent text-fg-inverse active:scale-[0.98]"
                 : "bg-surface-secondary text-fg-muted cursor-not-allowed",
             )}
@@ -349,6 +488,22 @@ export function ContactEditSheet({ contact, open, onClose }: Props) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+function fieldsFrom(contact: Contact): EditableFields {
+  return {
+    name: contact.name,
+    title: contact.title,
+    company: contact.company,
+    email: contact.email,
+    phone: contact.phone,
+    linkedin_url: contact.linkedin_url,
+    location: contact.location,
+    stage: contact.stage,
+    importance: contact.importance,
+    next_followup_at: contact.next_followup_at,
+    followup_reason: contact.followup_reason,
+  };
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

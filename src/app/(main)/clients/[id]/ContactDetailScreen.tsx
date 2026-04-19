@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, Zap, Loader2, Plus, RefreshCw, Globe, Pencil } from "lucide-react";
 import { StatusBar, Avatar, Chip } from "@/components/ui";
 import { SectionRenderer } from "@/components/contacts/SectionRenderer";
@@ -67,6 +68,7 @@ export function ContactDetailScreen({ id }: Props) {
   const [activeTab, setActiveTab] = useState<"info" | "notes">("info");
   const [enriching, setEnriching] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const router = useRouter();
   const { openCapture } = useUIStore();
   const { addToast } = useUIStore();
 
@@ -367,6 +369,7 @@ export function ContactDetailScreen({ id }: Props) {
         contact={contact}
         open={editOpen}
         onClose={() => setEditOpen(false)}
+        onDelete={() => router.replace("/clients")}
       />
     </div>
   );

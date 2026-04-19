@@ -26,6 +26,7 @@ import {
   buildWebResearchPrompt,
 } from "@/lib/ai/prompts";
 import { runTier1 } from "@/lib/ai/regenerate";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 import type { Interaction } from "@/types/interaction";
 
 function getOpenAI(): OpenAI {
@@ -41,6 +42,10 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit: max 10 web-research calls per hour per user
+  const rl = checkRateLimit("research", user.id, { maxRequests: 10, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   let body: {
     contact_id?: string;

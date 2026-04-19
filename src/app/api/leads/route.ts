@@ -17,6 +17,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import OpenAI from "openai";
 import { LEAD_DISCOVERY_SYSTEM_PROMPT, buildLeadDiscoveryPrompt } from "@/lib/ai/prompts";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 
 export interface LeadProspect {
   id: string; // client-generated for list keys
@@ -42,6 +43,10 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit: max 10 lead-discovery searches per hour per user
+  const rl = checkRateLimit("leads", user.id, { maxRequests: 10, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   let body: { query?: string };
   try {

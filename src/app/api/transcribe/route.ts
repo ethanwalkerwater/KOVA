@@ -13,6 +13,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB (Whisper limit)
 
@@ -23,6 +24,10 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit: max 30 Whisper transcriptions per hour per user
+  const rl = checkRateLimit("transcribe", user.id, { maxRequests: 30, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   // OpenAI key check
   if (!process.env.OPENAI_API_KEY) {

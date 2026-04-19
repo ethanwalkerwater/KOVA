@@ -20,6 +20,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import OpenAI from "openai";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB — GPT-4o vision hard limit
 
@@ -64,6 +65,10 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Rate limit: max 20 OCR scans per day per user
+  const rl = checkRateLimit("ocr", user.id, { maxRequests: 20, windowMs: 24 * 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: "OpenAI not configured" }, { status: 503 });
   }
@@ -89,7 +94,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // H4: reject non-image MIME types before burning an OpenAI call
   const mime = imageFile.type || "image/jpeg";
+  if (!mime.startsWith("image/")) {
+    return NextResponse.json(
+      { error: `Unsupported file type: ${mime}. Only image/* is accepted.` },
+      { status: 415 },
+    );
+  }
   const arrayBuffer = await imageFile.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString("base64");
   const dataUrl = `${mimeToPrefix(mime)}${base64}`;
@@ -126,8 +138,10 @@ export async function POST(request: NextRequest) {
         ? "card_scan"
         : "photo";
 
-    // Best-effort: extract a name from the first heading in the markdown
-    const nameMatch = extractedText.match(/^#\s+(.+)$/m);
+    // Best-effort: extract a name from the FIRST h1 heading only.
+    // Use /^#\s+/ anchored to the very start of the string (before any body
+    // content that might also have h1 headings like "# Sales Highlights").
+    const nameMatch = extractedText.match(/^#\s+(.+)/);
     const suggestedName = nameMatch ? nameMatch[1].trim() : null;
 
     return NextResponse.json({

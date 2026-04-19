@@ -30,6 +30,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runTier1 } from "@/lib/ai/regenerate";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 import type { Interaction, InteractionType } from "@/types/interaction";
 import type { Database } from "@/types/database";
 
@@ -56,6 +57,10 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Rate limit: max 60 interactions per hour per user (Tier 1 GPT on each)
+  const rl = checkRateLimit("interactions", user.id, { maxRequests: 60, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
   let body: {
     contact_id?: string;
     type?: string;
@@ -76,6 +81,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "contact_id, type, and raw_content are required" },
       { status: 400 },
+    );
+  }
+
+  if (raw_content.length > 50_000) {
+    return NextResponse.json(
+      { error: "raw_content too large (max 50,000 chars)" },
+      { status: 413 },
     );
   }
 

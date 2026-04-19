@@ -33,6 +33,10 @@ type InputMode = "voice" | "text" | "scan";
 
 interface FormState {
   mode: InputMode;
+  /** True when the textInput was populated by a voice transcription.
+   *  Ensures the interaction type stays "voice_memo" even after mode resets
+   *  to "text" post-transcription. */
+  capturedViaVoice: boolean;
   nameInput: string;
   textInput: string;
   sourceContext: string;
@@ -58,13 +62,16 @@ type FormAction =
   | { type: "set_scan_processing" }
   | { type: "set_scan_done"; extractedText: string; suggestedName: string | null }
   | { type: "set_scan_error"; error: string }
-  | { type: "clear_scan" };
+  | { type: "clear_scan" }
+  /** Voice transcription done: switch to text view but remember origin. */
+  | { type: "set_voice_transcribed" };
 
 function formReducer(state: FormState, action: FormAction): FormState {
   switch (action.type) {
     case "reset":
       return {
         mode: action.initialMode ?? "text",
+        capturedViaVoice: false,
         nameInput: "",
         textInput: action.initialText ?? "",
         sourceContext: "",
@@ -75,7 +82,8 @@ function formReducer(state: FormState, action: FormAction): FormState {
         scanOcrError: null,
       };
     case "set_mode":
-      return { ...state, mode: action.mode };
+      // Switching away from voice clears the capturedViaVoice flag
+      return { ...state, mode: action.mode, capturedViaVoice: false };
     case "set_name":
       return { ...state, nameInput: action.value };
     case "set_text":
@@ -118,11 +126,16 @@ function formReducer(state: FormState, action: FormAction): FormState {
         scanOcrError: null,
         textInput: "",
       };
+    case "set_voice_transcribed":
+      // Switch to text view so the textarea renders, but mark that content
+      // originated from voice so the interaction saves as "voice_memo".
+      return { ...state, mode: "text", capturedViaVoice: true };
   }
 }
 
 const INITIAL_FORM: FormState = {
   mode: "text",
+  capturedViaVoice: false,
   nameInput: "",
   textInput: "",
   sourceContext: "",
@@ -176,11 +189,18 @@ export function CaptureSheet() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [captureOpen, captureInitialText, captureMode]);
 
-  // When voice transcription completes, populate the text area
+  // When voice transcription completes, populate the text area.
+  // We reset mode to "text" so the textarea renders, but mark capturedViaVoice
+  // so the submit path saves as "voice_memo", not "text_note" (M5 fix).
   useEffect(() => {
     if (voice.state === "done" && voice.transcript) {
       dispatch({ type: "set_text", value: voice.transcript });
-      dispatch({ type: "set_mode", mode: "text" });
+      // Use set_mode only to show the textarea; capturedViaVoice flag preserved
+      // via a direct state patch after — reducer clears capturedViaVoice on
+      // set_mode, so we need a separate field-level update below.
+      // Simplest: skip set_mode and keep mode="voice"; the textarea renders in both.
+      // Instead, use a new dedicated action to avoid the flag being cleared.
+      dispatch({ type: "set_voice_transcribed" });
       voice.reset();
     }
   }, [voice.state, voice.transcript]);
@@ -257,9 +277,11 @@ export function CaptureSheet() {
 
     dispatch({ type: "set_submitting" });
 
-    // Determine interaction type based on mode
+    // Determine interaction type.
+    // capturedViaVoice handles the case where voice transcription finished and
+    // mode was reset to "text" for the textarea UI — we still want "voice_memo".
     let interactionType: InteractionType = "text_note";
-    if (form.mode === "voice") interactionType = "voice_memo";
+    if (form.capturedViaVoice || form.mode === "voice") interactionType = "voice_memo";
     else if (form.mode === "scan" && form.scanImageFile) interactionType = "card_scan";
 
     try {

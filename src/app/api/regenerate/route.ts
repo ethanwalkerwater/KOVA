@@ -4,8 +4,8 @@
  * Runs the full Tier 2 regeneration for a contact:
  * 1. Fetches all interactions for the contact
  * 2. Calls GPT-4o with the full log
- * 3. Validates output for hallucinations
- * 4. Writes updated metadata + sections back to Supabase
+ * 3. Validates output — aborts if validation fails (H2 fix)
+ * 4. Writes updated metadata (non-null AI values only, H1 fix) + sections
  *
  * Body: { contact_id: string }
  * Returns: { success: boolean, validationErrors?: string[], estimatedCostUsd: number }
@@ -14,24 +14,35 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runTier2 } from "@/lib/ai/regenerate";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 import type { Interaction } from "@/types/interaction";
 import type { Database } from "@/types/database";
 
 type ContactUpdate = Database["public"]["Tables"]["contacts"]["Update"];
 
+/**
+ * Fields that users can edit directly in ContactEditSheet.
+ * AI regeneration must NEVER overwrite these with null/undefined —
+ * user-entered values are not captured in any interaction and would be
+ * permanently lost. AI may update these only when it has a non-null value.
+ */
+const USER_OWNED_FIELDS = new Set([
+  "name", "email", "phone", "linkedin_url", "title", "company", "location",
+  "stage", "importance", "next_followup_at", "followup_reason", "tags",
+]);
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
-  // Auth check
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Rate limit: max 5 full regenerations per minute per user
+  const rl = checkRateLimit("regenerate", user.id, { maxRequests: 5, windowMs: 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
-  // Parse body
   let body: { contact_id?: string };
   try {
     body = await request.json();
@@ -44,7 +55,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "contact_id is required" }, { status: 400 });
   }
 
-  // Verify the contact belongs to the user (RLS would also catch this)
+  // Verify ownership (RLS also catches this, but explicit is better)
   const { data: contact, error: contactError } = await supabase
     .from("contacts")
     .select("id")
@@ -56,7 +67,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }
 
-  // Fetch all interactions for this contact
   const { data: interactionRows, error: fetchError } = await supabase
     .from("interactions")
     .select("*")
@@ -73,7 +83,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No interactions to regenerate from" }, { status: 422 });
   }
 
-  // Run Tier 2 regeneration
   let result;
   try {
     result = await runTier2(interactions);
@@ -84,30 +93,49 @@ export async function POST(request: NextRequest) {
 
   const { output, validation, estimatedCostUsd } = result;
 
-  // Log validation warnings — don't block on them but report
+  // H2 fix: if validation fails, refuse to persist — the AI output cites phantom
+  // interaction IDs or contains unsourced fields, which means we can't trust it.
   if (!validation.valid) {
-    console.warn("[regenerate] Validation warnings for contact", contact_id, validation.errors);
+    console.warn("[regenerate] Validation failed for contact", contact_id, validation.errors);
+    return NextResponse.json(
+      {
+        success: false,
+        validationErrors: validation.errors,
+        estimatedCostUsd,
+        message: "AI output failed validation — not persisted",
+      },
+      { status: 422 },
+    );
   }
 
-  // Write metadata to contacts table.
-  // Destructure out any application-level join fields (interactions, sections)
-  // that live on the Contact type but are NOT database columns — passing them
-  // to Supabase's update() would trigger a RejectExcessProperties type error.
+  // H1 fix: build the metadata update with only non-null values.
+  // For user-owned fields, never write null (it would erase data the user typed
+  // in ContactEditSheet that isn't captured in any interaction).
+  // For AI-only fields (ai_summary, relationship_score, etc.), allow them to be
+  // set/updated freely since they are 100% AI-derived.
   const { metadata, metadata_sources } = output;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { interactions: _i, sections: _s, ...dbMetadata } = metadata as {
+  const { interactions: _i, sections: _s, ...rawMeta } = metadata as {
     interactions?: unknown;
     sections?: unknown;
     [key: string]: unknown;
   };
 
+  const dbMetadata: ContactUpdate = {};
+  for (const [key, value] of Object.entries(rawMeta)) {
+    if (value === null || value === undefined) {
+      // Never write null for user-owned fields
+      if (USER_OWNED_FIELDS.has(key)) continue;
+    }
+    if (value !== undefined) {
+      (dbMetadata as Record<string, unknown>)[key] = value;
+    }
+  }
+
   if (Object.keys(dbMetadata).length > 0) {
+    dbMetadata.updated_at = new Date().toISOString();
     const { error: metaError } = await supabase
       .from("contacts")
-      .update({
-        ...(dbMetadata as ContactUpdate),
-        updated_at: new Date().toISOString(),
-      })
+      .update(dbMetadata)
       .eq("id", contact_id);
 
     if (metaError) {
@@ -137,10 +165,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Update last_interaction_at via helper function
   await supabase.rpc("touch_contact", { p_contact_id: contact_id });
 
-  // Fetch the updated contact + sections to return to the client
   const [{ data: updatedContact }, { data: updatedSections }] = await Promise.all([
     supabase.from("contacts").select("*").eq("id", contact_id).single(),
     supabase
@@ -153,10 +179,8 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     success: sectionErrors.length === 0,
     sectionErrors: sectionErrors.length > 0 ? sectionErrors : undefined,
-    validationErrors: validation.valid ? undefined : validation.errors,
     estimatedCostUsd,
     metadata_sources,
-    // Return updated data so the client can refresh its cache
     contact: updatedContact,
     sections: updatedSections ?? [],
   });

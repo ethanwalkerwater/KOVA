@@ -36,6 +36,9 @@ interface ContactsState {
   /** Update or insert a single contact in the cache. */
   upsertContact: (contact: ContactWithRelations) => void;
 
+  /** Remove a contact from the cache (after successful DELETE). */
+  removeContact: (id: string) => void;
+
   /** Append a new interaction to an existing contact (optimistic). */
   appendInteraction: (contactId: string, interaction: Interaction) => void;
 
@@ -76,6 +79,15 @@ export const useContactsStore = create<ContactsState>((set) => ({
       return {
         contacts: { ...state.contacts, [contact.id]: contact },
         listIds: isNew ? [...state.listIds, contact.id] : state.listIds,
+      };
+    }),
+
+  removeContact: (id) =>
+    set((state) => {
+      const { [id]: _removed, ...remaining } = state.contacts;
+      return {
+        contacts: remaining,
+        listIds: state.listIds.filter((lid) => lid !== id),
       };
     }),
 
