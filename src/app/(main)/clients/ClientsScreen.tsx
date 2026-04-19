@@ -72,7 +72,7 @@ function ContactCard({ contact, isLast }: ContactCardProps) {
             {[contact.title, contact.company].filter(Boolean).join(" · ")}
           </p>
         )}
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
           {stageChip && <Chip label={stageChip.label} variant={stageChip.variant} />}
           {contact.importance === "high" && (
             <span
@@ -85,6 +85,17 @@ function ContactCard({ contact, isLast }: ContactCardProps) {
               className="w-2 h-2 rounded-full bg-accent shrink-0"
               aria-label="Medium priority"
             />
+          )}
+          {contact.tags.slice(0, 2).map((tag) => (
+            <span
+              key={tag}
+              className="text-xs text-fg-muted bg-surface-secondary rounded-full px-2 py-0.5 border border-border-light"
+            >
+              {tag}
+            </span>
+          ))}
+          {contact.tags.length > 2 && (
+            <span className="text-xs text-fg-muted">+{contact.tags.length - 2}</span>
           )}
         </div>
       </div>

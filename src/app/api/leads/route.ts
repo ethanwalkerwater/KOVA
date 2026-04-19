@@ -102,8 +102,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2: Extract structured leads
+    // H6 fix: explicit stream: false so TypeScript narrows to ChatCompletion
     const extractionCompletion = await openai.chat.completions.create({
       model,
+      stream: false,
       messages: [
         { role: "system", content: LEAD_DISCOVERY_SYSTEM_PROMPT },
         {
@@ -116,17 +118,46 @@ export async function POST(request: NextRequest) {
       max_tokens: 1000,
     });
 
-    const raw = extractionCompletion.choices[0].message.content ?? "{}";
-    const parsed = JSON.parse(raw) as { leads?: LeadProspect[] };
+    // H5 fix: parse errors and empty output return 502, not silent empty 200.
+    // This lets the client show "AI failed, try again" vs "no matches found".
+    const raw = extractionCompletion.choices[0].message.content;
+    if (!raw) {
+      return NextResponse.json({ error: "Lead extraction returned empty output" }, { status: 502 });
+    }
 
-    leads = (parsed.leads ?? []).map((l, i) => ({
-      ...l,
-      id: `lead-${Date.now()}-${i}`,
-    }));
+    let parsed: { leads?: unknown[] };
+    try {
+      parsed = JSON.parse(raw) as { leads?: unknown[] };
+    } catch {
+      console.error("[leads] JSON parse failed, raw:", raw.slice(0, 200));
+      return NextResponse.json({ error: "Lead extraction output was malformed" }, { status: 502 });
+    }
+
+    // Validate each lead has the required shape before accepting it
+    const rawLeads = Array.isArray(parsed.leads) ? parsed.leads : [];
+    leads = rawLeads
+      .filter(
+        (l): l is LeadProspect =>
+          typeof l === "object" &&
+          l !== null &&
+          typeof (l as Record<string, unknown>).name === "string",
+      )
+      .map((l, i) => ({
+        id: `lead-${Date.now()}-${i}`,
+        name: l.name,
+        title: typeof l.title === "string" ? l.title : null,
+        company: typeof l.company === "string" ? l.company : null,
+        location: typeof l.location === "string" ? l.location : null,
+        summary: typeof l.summary === "string" ? l.summary : "",
+        relevance_score:
+          typeof l.relevance_score === "number"
+            ? Math.max(0, Math.min(100, l.relevance_score))
+            : 50,
+        source_url: typeof l.source_url === "string" ? l.source_url : null,
+      }));
   } catch (err) {
     console.error("[leads] Discovery failed:", err);
-    // Return empty on failure — don't crash
-    return NextResponse.json({ leads: [], query_used: searchQuery });
+    return NextResponse.json({ error: "Lead discovery failed" }, { status: 502 });
   }
 
   // Sort by relevance score descending

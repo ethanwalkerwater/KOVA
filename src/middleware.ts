@@ -81,8 +81,12 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization)
      * - favicon.ico, sitemap.xml, robots.txt
-     * - public folder files
+     * - public folder files (icons/)
+     * - /api/* routes — each API handler does its own auth check and returns
+     *   JSON 401; middleware would return an HTML 307 redirect instead, which
+     *   breaks every fetch() caller. Session refresh for API routes isn't needed
+     *   because the Supabase client re-reads the cookie on each server request.
      */
-    "/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|icons/).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|icons/|api/).*)",
   ],
 };

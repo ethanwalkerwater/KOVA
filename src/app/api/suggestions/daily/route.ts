@@ -2,16 +2,15 @@
  * GET /api/suggestions/daily
  *
  * Returns contacts that need a follow-up today. Priority order:
- * 1. next_followup_at <= today (overdue / due today)
+ * 1. next_followup_at <= today (overdue / due today) — fetched separately so
+ *    they always appear regardless of how many high/medium contacts exist (H3 fix)
  * 2. importance=high + no interaction in 14+ days
  * 3. importance=medium + no interaction in 30+ days
  *
- * Capped at 10 suggestions. Each item includes a follow-up reason
- * (existing followup_reason field or AI-generated).
+ * Capped at 10 suggestions. Each item includes a follow-up reason.
  *
  * Query params:
  * - limit: max suggestions (default 5, max 10)
- * - ai: "1" to generate personalized reasons via GPT (default off)
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -22,11 +21,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface DailySuggestion {
   contact: Contact;
-  /** Why we're surfacing this contact today. */
   reason: string;
-  /** How urgent: 0=low … 2=high */
   urgency: 0 | 1 | 2;
 }
+
+const ACTIVE_STAGES = '("closed_won","closed_lost")';
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -41,64 +40,84 @@ export async function GET(request: NextRequest) {
   const todayEnd = new Date(now);
   todayEnd.setHours(23, 59, 59, 999);
 
-  // Fetch candidates: contacts with a due follow-up or high/medium importance
-  const { data: contacts, error } = await supabase
-    .from("contacts")
-    .select("*")
-    .eq("owner_id", user.id)
-    .or(`next_followup_at.lte.${todayEnd.toISOString()},importance.eq.high,importance.eq.medium`)
-    .not("stage", "in", '("closed_won","closed_lost")')
-    .order("next_followup_at", { ascending: true, nullsFirst: false })
-    .limit(50); // over-fetch then rank client-side
+  // H3 fix: run two separate queries.
+  //
+  // Query A: overdue/due-today follow-ups — these are always surfaced first
+  // regardless of how many importance-based candidates exist.
+  //
+  // Query B: importance-based cadence — high (14 days), medium (30 days).
+  // We fetch up to (limit * 5) rows so even if many contacts exist the ranker
+  // can find the most-stale ones.
+  const [{ data: overdueRows, error: err1 }, { data: cadenceRows, error: err2 }] =
+    await Promise.all([
+      supabase
+        .from("contacts")
+        .select("*")
+        .eq("owner_id", user.id)
+        .lte("next_followup_at", todayEnd.toISOString())
+        .not("stage", "in", ACTIVE_STAGES)
+        .order("next_followup_at", { ascending: true })
+        .limit(limit),
 
-  if (error) {
-    console.error("[suggestions/daily]", error);
+      supabase
+        .from("contacts")
+        .select("*")
+        .eq("owner_id", user.id)
+        .is("next_followup_at", null) // don't double-count scheduled ones
+        .or("importance.eq.high,importance.eq.medium")
+        .not("stage", "in", ACTIVE_STAGES)
+        .order("last_interaction_at", { ascending: true, nullsFirst: true })
+        .limit(limit * 5),
+    ]);
+
+  if (err1 || err2) {
+    console.error("[suggestions/daily]", err1 ?? err2);
     return NextResponse.json({ error: "Failed to fetch suggestions" }, { status: 500 });
   }
 
-  if (!contacts || contacts.length === 0) {
-    return NextResponse.json({ suggestions: [] });
-  }
-
-  // ── Rank & filter ────────────────────────────────────────────────────────────
-
+  const seenIds = new Set<string>();
   const suggestions: DailySuggestion[] = [];
 
-  for (const c of contacts as Contact[]) {
+  // Process overdue contacts first (urgency 2)
+  for (const c of (overdueRows ?? []) as Contact[]) {
     if (suggestions.length >= limit) break;
+    if (seenIds.has(c.id)) continue;
+    seenIds.add(c.id);
+
+    const reason =
+      c.followup_reason ??
+      (c.suggested_next_step ? `Suggested: ${c.suggested_next_step}` : "Follow-up due today");
+
+    suggestions.push({ contact: c, reason, urgency: 2 });
+  }
+
+  // Fill remaining slots with cadence-based contacts
+  for (const c of (cadenceRows ?? []) as Contact[]) {
+    if (suggestions.length >= limit) break;
+    if (seenIds.has(c.id)) continue;
 
     const daysSinceLast = c.last_interaction_at
       ? Math.floor((now.getTime() - new Date(c.last_interaction_at).getTime()) / DAY_MS)
       : 999;
 
-    const hasOverdueFollowup = c.next_followup_at
-      ? new Date(c.next_followup_at) <= todayEnd
-      : false;
-
-    // Determine if this contact warrants a suggestion
     let reason: string | null = null;
     let urgency: 0 | 1 | 2 = 0;
 
-    if (hasOverdueFollowup) {
-      reason =
-        c.followup_reason ??
-        (c.suggested_next_step ? `Suggested: ${c.suggested_next_step}` : "Follow-up due today");
-      urgency = 2;
-    } else if (c.importance === "high" && daysSinceLast >= 14) {
-      reason = `High priority contact — ${daysSinceLast} days since last interaction`;
+    if (c.importance === "high" && daysSinceLast >= 14) {
+      reason = `High priority — ${daysSinceLast} days since last interaction`;
       urgency = 1;
     } else if (c.importance === "medium" && daysSinceLast >= 30) {
       reason = `${daysSinceLast} days since last contact — time to reconnect`;
       urgency = 0;
     } else {
-      // Not urgent enough to surface today
       continue;
     }
 
+    seenIds.add(c.id);
     suggestions.push({ contact: c, reason, urgency });
   }
 
-  // Sort: urgency desc, then by last_interaction_at asc (most stale first)
+  // Final sort: urgency desc, then most-stale first
   suggestions.sort((a, b) => {
     if (b.urgency !== a.urgency) return b.urgency - a.urgency;
     const aLast = a.contact.last_interaction_at

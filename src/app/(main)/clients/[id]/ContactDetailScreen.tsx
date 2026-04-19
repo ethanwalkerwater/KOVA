@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Zap, Loader2, Plus, RefreshCw, Globe, Pencil } from "lucide-react";
+import {
+  ChevronLeft, Zap, Loader2, Plus, RefreshCw, Globe, Pencil,
+  Mail, Phone, ExternalLink, MapPin, Copy, Check,
+} from "lucide-react";
 import { StatusBar, Avatar, Chip } from "@/components/ui";
 import { SectionRenderer } from "@/components/contacts/SectionRenderer";
 import { InteractionTimeline } from "@/components/contacts/InteractionTimeline";
@@ -68,7 +71,15 @@ export function ContactDetailScreen({ id }: Props) {
   const [activeTab, setActiveTab] = useState<"info" | "notes">("info");
   const [enriching, setEnriching] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const router = useRouter();
+
+  const copyToClipboard = useCallback((text: string, field: string) => {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 1500);
+    });
+  }, []);
   const { openCapture } = useUIStore();
   const { addToast } = useUIStore();
 
@@ -217,6 +228,7 @@ export function ContactDetailScreen({ id }: Props) {
 
       {/* Profile Header */}
       <div className="bg-surface-primary rounded-3xl mx-4 mb-4 p-5 border border-border">
+        {/* Top: avatar + name/title + stage chips */}
         <div className="flex items-start gap-4">
           <Avatar name={contact.name} size="lg" />
           <div className="flex-1 min-w-0">
@@ -236,6 +248,100 @@ export function ContactDetailScreen({ id }: Props) {
             </div>
           </div>
         </div>
+
+        {/* Contact info rows */}
+        {(contact.email || contact.phone || contact.linkedin_url || contact.location) && (
+          <div className="mt-4 space-y-2 border-t border-border-light pt-4">
+            {contact.email && (
+              <div className="flex items-center gap-2">
+                <Mail className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                <a
+                  href={`mailto:${contact.email}`}
+                  className="text-accent text-sm truncate flex-1 hover:underline"
+                >
+                  {contact.email}
+                </a>
+                <button
+                  onClick={() => copyToClipboard(contact.email!, "email")}
+                  className="shrink-0 text-fg-muted hover:text-fg-primary transition-colors"
+                  aria-label="Copy email"
+                >
+                  {copiedField === "email" ? (
+                    <Check className="w-3.5 h-3.5 text-accent-green" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            )}
+            {contact.phone && (
+              <div className="flex items-center gap-2">
+                <Phone className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                <a
+                  href={`tel:${contact.phone}`}
+                  className="text-accent text-sm truncate flex-1 hover:underline"
+                >
+                  {contact.phone}
+                </a>
+                <button
+                  onClick={() => copyToClipboard(contact.phone!, "phone")}
+                  className="shrink-0 text-fg-muted hover:text-fg-primary transition-colors"
+                  aria-label="Copy phone"
+                >
+                  {copiedField === "phone" ? (
+                    <Check className="w-3.5 h-3.5 text-accent-green" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            )}
+            {contact.linkedin_url && (
+              <div className="flex items-center gap-2">
+                <ExternalLink className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                <a
+                  href={contact.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent text-sm truncate flex-1 hover:underline"
+                >
+                  {contact.linkedin_url.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, "")}
+                </a>
+                <button
+                  onClick={() => copyToClipboard(contact.linkedin_url!, "linkedin")}
+                  className="shrink-0 text-fg-muted hover:text-fg-primary transition-colors"
+                  aria-label="Copy LinkedIn URL"
+                >
+                  {copiedField === "linkedin" ? (
+                    <Check className="w-3.5 h-3.5 text-accent-green" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            )}
+            {contact.location && (
+              <div className="flex items-center gap-2">
+                <MapPin className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+                <span className="text-fg-secondary text-sm truncate">{contact.location}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tags */}
+        {contact.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {contact.tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center bg-surface-secondary text-fg-secondary text-xs font-medium rounded-full px-2.5 py-0.5 border border-border"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Quick action bar */}
