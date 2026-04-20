@@ -151,7 +151,7 @@ const INITIAL_FORM: FormState = {
 export function CaptureSheet() {
   const { captureOpen, captureContactId, captureInitialText, captureMode, closeCapture } =
     useUIStore();
-  const { contacts } = useContactsStore();
+  const { contacts, upsertContact, appendInteraction } = useContactsStore();
   const { addToast } = useUIStore();
 
   const [form, dispatch] = useReducer(formReducer, INITIAL_FORM);
@@ -303,6 +303,13 @@ export function CaptureSheet() {
           throw new Error(body.error ?? "Failed to create contact");
         }
 
+        // Update store so the contact appears immediately in the list
+        const data = (await res.json()) as {
+          contact: import("@/types/contact").Contact;
+          interaction: import("@/types/interaction").Interaction;
+        };
+        upsertContact({ ...data.contact, sections: [], interactions: [data.interaction] });
+
         dispatch({ type: "set_success", message: "Contact added" });
         addToast("Contact created", "success");
       } else {
@@ -320,6 +327,12 @@ export function CaptureSheet() {
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
           throw new Error(body.error ?? "Failed to save note");
+        }
+
+        // Optimistically append the interaction to the contact in the store
+        const intData = (await res.json()) as { interaction: import("@/types/interaction").Interaction };
+        if (captureContactId && intData.interaction) {
+          appendInteraction(captureContactId, intData.interaction);
         }
 
         dispatch({ type: "set_success", message: "Note saved" });
