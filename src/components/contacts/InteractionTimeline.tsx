@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Mic,
   FileText,
@@ -81,9 +82,79 @@ const TYPE_META: Record<InteractionType, TypeMeta> = {
   },
 };
 
-function truncate(text: string, maxLen: number): string {
-  if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen) + "…";
+const PREVIEW_LENGTH = 200;
+
+function InteractionEntry({
+  interaction,
+  isLast,
+}: {
+  interaction: Interaction;
+  isLast: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const meta = TYPE_META[interaction.type] ?? {
+    icon: FileText,
+    colorClass: "bg-surface-secondary text-fg-secondary",
+    label: interaction.type,
+  };
+  const Icon = meta.icon;
+  const isTruncatable = interaction.raw_content.length > PREVIEW_LENGTH;
+  const displayContent =
+    isTruncatable && !expanded
+      ? interaction.raw_content.slice(0, PREVIEW_LENGTH) + "…"
+      : interaction.raw_content;
+
+  return (
+    <div className="flex gap-3">
+      {/* Left: timeline line + dot */}
+      <div className="flex flex-col items-center">
+        <span
+          className={cn(
+            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+            meta.colorClass,
+          )}
+        >
+          <Icon size={9} />
+        </span>
+        {!isLast && <div className="flex-1 border-l-2 border-border-light mt-1 mb-1" />}
+      </div>
+
+      {/* Right: content */}
+      <div className={cn("pb-4 min-w-0 flex-1", isLast && "pb-0")}>
+        {/* Type label + date */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-fg-muted text-xs uppercase tracking-wide">{meta.label}</span>
+          <span className="text-fg-muted text-xs">{formatDate(interaction.created_at)}</span>
+        </div>
+
+        {/* source_context badge */}
+        {interaction.source_context && (
+          <span className="inline-block mt-1 bg-surface-secondary text-fg-secondary text-xs rounded-full px-2 py-0.5">
+            {interaction.source_context}
+          </span>
+        )}
+
+        {/* raw_content with expand/collapse */}
+        <p className="text-fg-primary text-sm leading-relaxed mt-1">{displayContent}</p>
+        {isTruncatable && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="text-accent text-xs mt-0.5 hover:underline"
+          >
+            {expanded ? "Show less" : "Show more"}
+          </button>
+        )}
+
+        {/* AI badge */}
+        {interaction.ai_generated && (
+          <span className="inline-block mt-1 bg-accent-light text-accent text-xs rounded-full px-1.5 py-0.5">
+            AI
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function InteractionTimeline({ interactions, className }: InteractionTimelineProps) {
@@ -110,64 +181,13 @@ export function InteractionTimeline({ interactions, className }: InteractionTime
 
       {/* Timeline list */}
       <div className="flex flex-col">
-        {sorted.map((interaction, index) => {
-          const meta = TYPE_META[interaction.type] ?? {
-            icon: FileText,
-            colorClass: "bg-surface-secondary text-fg-secondary",
-            label: interaction.type,
-          };
-          const Icon = meta.icon;
-          const isLast = index === sorted.length - 1;
-
-          return (
-            <div key={interaction.id} className="flex gap-3">
-              {/* Left: timeline line + dot */}
-              <div className="flex flex-col items-center">
-                <span
-                  className={cn(
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
-                    meta.colorClass,
-                  )}
-                >
-                  <Icon size={9} />
-                </span>
-                {!isLast && <div className="flex-1 border-l-2 border-border-light mt-1 mb-1" />}
-              </div>
-
-              {/* Right: content */}
-              <div className={cn("pb-4 min-w-0 flex-1", isLast && "pb-0")}>
-                {/* Type label + date */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-fg-muted text-xs uppercase tracking-wide">
-                    {meta.label}
-                  </span>
-                  <span className="text-fg-muted text-xs">
-                    {formatDate(interaction.created_at)}
-                  </span>
-                </div>
-
-                {/* source_context badge */}
-                {interaction.source_context && (
-                  <span className="inline-block mt-1 bg-surface-secondary text-fg-secondary text-xs rounded-full px-2 py-0.5">
-                    {interaction.source_context}
-                  </span>
-                )}
-
-                {/* raw_content */}
-                <p className="text-fg-primary text-sm leading-relaxed mt-1">
-                  {truncate(interaction.raw_content, 200)}
-                </p>
-
-                {/* AI badge */}
-                {interaction.ai_generated && (
-                  <span className="inline-block mt-1 bg-accent-light text-accent text-xs rounded-full px-1.5 py-0.5">
-                    AI
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {sorted.map((interaction, index) => (
+          <InteractionEntry
+            key={interaction.id}
+            interaction={interaction}
+            isLast={index === sorted.length - 1}
+          />
+        ))}
       </div>
     </div>
   );

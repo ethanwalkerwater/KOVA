@@ -246,8 +246,9 @@ export function ContactDetailScreen({ id }: Props) {
 
   // ── Derive views from sections ─────────────────────────────────────────────
 
-  const infoSections = (contact.sections ?? []).filter((s: Section) =>
-    ["profile", "company", "follow-up"].includes(s.slug),
+  const INFO_SLUG_ORDER = ["profile", "company", "follow-up"];
+  const infoSections = INFO_SLUG_ORDER.flatMap(
+    (slug) => (contact.sections ?? []).filter((s: Section) => s.slug === slug),
   );
   const outreachSection = (contact.sections ?? []).find((s: Section) => s.slug === "outreach");
   const researchSection = (contact.sections ?? []).find((s: Section) => s.slug === "research");
