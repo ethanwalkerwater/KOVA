@@ -132,9 +132,11 @@ export async function POST(request: NextRequest) {
 
   const interaction = inserted as Interaction;
 
-  // Run Tier 1 regeneration (non-blocking best-effort)
-  // In production this should be a background job / edge function.
-  // For Phase 2 we run it inline but don't fail the request if it errors.
+  // Always stamp last_interaction_at; apply Tier 1 metadata on top if available.
+  const contactUpdate = {
+    last_interaction_at: interaction.created_at,
+  } as ContactUpdate;
+
   let tier1Result = null;
   const openAiConfigured = Boolean(process.env.OPENAI_API_KEY);
 
@@ -142,16 +144,15 @@ export async function POST(request: NextRequest) {
     try {
       tier1Result = await runTier1(interaction);
 
-      // Apply non-null Tier 1 output to the contact
       if (tier1Result.output && tier1Result.validation.valid) {
         const { output } = tier1Result;
-        const update = {} as ContactUpdate;
 
-        if (output.ai_summary) update.ai_summary = output.ai_summary.value;
-        if (output.relationship_score) update.relationship_score = output.relationship_score.value;
+        if (output.ai_summary) contactUpdate.ai_summary = output.ai_summary.value;
+        if (output.relationship_score)
+          contactUpdate.relationship_score = output.relationship_score.value;
         if (output.suggested_next_step)
-          update.suggested_next_step = output.suggested_next_step.value;
-        if (output.stage_update) update.stage = output.stage_update.value;
+          contactUpdate.suggested_next_step = output.suggested_next_step.value;
+        if (output.stage_update) contactUpdate.stage = output.stage_update.value;
         if (output.key_topics) {
           // Merge with existing topics (dedup)
           const { data: existing } = await supabase
@@ -160,21 +161,17 @@ export async function POST(request: NextRequest) {
             .eq("id", contact_id)
             .single();
 
-          const merged = Array.from(
+          contactUpdate.key_topics = Array.from(
             new Set([...(existing?.key_topics ?? []), ...output.key_topics.value]),
           );
-          update.key_topics = merged;
-        }
-
-        if (Object.keys(update).length > 0) {
-          update.last_interaction_at = interaction.created_at;
-          await supabase.from("contacts").update(update).eq("id", contact_id);
         }
       }
     } catch (err) {
       console.error("[interactions] Tier 1 failed (non-fatal):", err);
     }
   }
+
+  await supabase.from("contacts").update(contactUpdate).eq("id", contact_id);
 
   return NextResponse.json({
     interaction,

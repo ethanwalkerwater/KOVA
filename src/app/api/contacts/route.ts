@@ -198,34 +198,34 @@ export async function POST(request: NextRequest) {
   // Tier 2 (full sections regeneration) is triggered by the client's Regenerate
   // button, or automatically once the contact accumulates more interactions.
   let tier1Result = null;
+  // Always stamp last_interaction_at; additionally apply Tier 1 metadata if available.
+  const contactUpdate: ContactUpdate = {
+    last_interaction_at: interaction.created_at,
+    updated_at: new Date().toISOString(),
+  };
+
   if (process.env.OPENAI_API_KEY) {
     try {
       tier1Result = await runTier1(interaction as Interaction);
 
       if (tier1Result.output && tier1Result.validation.valid) {
         const { output } = tier1Result;
-        const update: ContactUpdate = {};
-
-        // Tier1Output fields: ai_summary, relationship_score, suggested_next_step,
-        // stage_update (rename → stage), key_topics
-        if (output.ai_summary?.value) update.ai_summary = output.ai_summary.value;
+        if (output.ai_summary?.value) contactUpdate.ai_summary = output.ai_summary.value;
         if (output.relationship_score?.value != null)
-          update.relationship_score = output.relationship_score.value;
+          contactUpdate.relationship_score = output.relationship_score.value;
         if (output.suggested_next_step?.value)
-          update.suggested_next_step = output.suggested_next_step.value;
+          contactUpdate.suggested_next_step = output.suggested_next_step.value;
         if (output.stage_update?.value)
-          update.stage = output.stage_update.value as ContactUpdate["stage"];
-        if (output.key_topics?.value?.length) update.key_topics = output.key_topics.value;
-
-        if (Object.keys(update).length > 0) {
-          update.updated_at = new Date().toISOString();
-          await supabase.from("contacts").update(update).eq("id", contact.id);
-        }
+          contactUpdate.stage = output.stage_update.value as ContactUpdate["stage"];
+        if (output.key_topics?.value?.length)
+          contactUpdate.key_topics = output.key_topics.value;
       }
     } catch (err) {
       console.warn("[contacts POST] Tier 1 failed (non-fatal):", err);
     }
   }
+
+  await supabase.from("contacts").update(contactUpdate).eq("id", contact.id);
 
   return NextResponse.json({ contact, interaction, tier1: tier1Result }, { status: 201 });
 }
