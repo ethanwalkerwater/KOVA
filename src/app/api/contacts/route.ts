@@ -43,6 +43,10 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Rate limit: 200 contact list fetches per hour (search/filter triggers this)
+  const rlGet = checkRateLimit("contacts_list", user.id, { maxRequests: 200, windowMs: 60 * 60_000 });
+  if (!rlGet.allowed) return rateLimitResponse(rlGet.retryAfterMs);
+
   const { searchParams } = request.nextUrl;
   const q = searchParams.get("q") ?? "";
   const stage = searchParams.get("stage");

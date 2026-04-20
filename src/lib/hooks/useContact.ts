@@ -38,8 +38,9 @@ export function useContact(id: string) {
     async function load() {
       // Only show the full loading skeleton when there's nothing cached to show.
       // If the contact is already in the store (e.g. navigating from the list),
-      // do a silent background refresh so the UI never goes blank.
-      if (!cached) setLoading(true);
+      // do a silent background refresh so the UI never goes blank or flashes an error.
+      const isColdLoad = !cached;
+      if (isColdLoad) setLoading(true);
       setError(null);
 
       if (!isSupabaseConfigured()) {
@@ -76,7 +77,13 @@ export function useContact(id: string) {
         upsertContact({ ...contact, sections, interactions });
         setSections(id, sections);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load contact");
+        // Only surface the error to the UI on cold loads (nothing cached).
+        // Background refreshes fail silently — the cached data stays visible.
+        if (isColdLoad) {
+          setError(err instanceof Error ? err.message : "Failed to load contact");
+        } else {
+          console.warn("[useContact] Background refresh failed:", err);
+        }
       } finally {
         setLoading(false);
       }
