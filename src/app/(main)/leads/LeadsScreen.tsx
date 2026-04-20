@@ -5,7 +5,10 @@ import { Search, Loader2, Globe, UserPlus, CheckCircle2 } from "lucide-react";
 import { StatusBar, Avatar, Button } from "@/components/ui";
 import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 import { useUIStore } from "@/stores/ui";
+import { useContactsStore } from "@/stores/contacts";
 import type { LeadProspect } from "@/app/api/leads/route";
+import type { Contact } from "@/types/contact";
+import type { Interaction } from "@/types/interaction";
 
 // ── Mock leads (Phase 1 fallback) ──────────────────────────────────────────────
 
@@ -145,6 +148,7 @@ export function LeadsScreen() {
   const [hasSearched, setHasSearched] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const { addToast } = useUIStore();
+  const { upsertContact } = useContactsStore();
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
@@ -219,13 +223,17 @@ export function LeadsScreen() {
           throw new Error(body.error ?? "Failed to add contact");
         }
 
+        // Update store so the contact appears immediately in Clients
+        const data = (await res.json()) as { contact: Contact; interaction: Interaction };
+        upsertContact({ ...data.contact, sections: [], interactions: [data.interaction] });
+
         addToast(`${lead.name} added to Clients`, "success");
       } catch (err) {
         addToast(err instanceof Error ? err.message : "Failed to add", "error");
         throw err; // re-throw so the card can revert its adding state
       }
     },
-    [addToast],
+    [addToast, upsertContact],
   );
 
   return (
