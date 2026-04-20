@@ -329,10 +329,21 @@ export function CaptureSheet() {
           throw new Error(body.error ?? "Failed to save note");
         }
 
-        // Optimistically append the interaction to the contact in the store
-        const intData = (await res.json()) as { interaction: import("@/types/interaction").Interaction };
+        // Append the interaction + patch updated metadata (ai_summary, stage, etc.)
+        // from Tier 1 so the detail page stays fresh without a manual regeneration.
+        const intData = (await res.json()) as {
+          interaction: import("@/types/interaction").Interaction;
+          contact_update?: Partial<import("@/types/contact").Contact>;
+        };
         if (captureContactId && intData.interaction) {
           appendInteraction(captureContactId, intData.interaction);
+          // Patch the contact's metadata fields if Tier 1 produced updates
+          if (intData.contact_update) {
+            const cached = contacts[captureContactId];
+            if (cached) {
+              upsertContact({ ...cached, ...intData.contact_update });
+            }
+          }
         }
 
         dispatch({ type: "set_success", message: "Note saved" });

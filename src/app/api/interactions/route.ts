@@ -173,8 +173,13 @@ export async function POST(request: NextRequest) {
 
   await supabase.from("contacts").update(contactUpdate).eq("id", contact_id);
 
+  // Return the updated metadata fields so the client can patch the store
+  // without a full page reload. Only include fields that were actually updated.
+  const updatedContactFields = { ...contactUpdate };
+
   return NextResponse.json({
     interaction,
+    contact_update: updatedContactFields,
     tier1: tier1Result
       ? {
           output: tier1Result.output,
