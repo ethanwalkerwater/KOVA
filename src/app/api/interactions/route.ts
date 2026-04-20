@@ -133,9 +133,20 @@ export async function POST(request: NextRequest) {
   const interaction = inserted as Interaction;
 
   // Always stamp last_interaction_at; apply Tier 1 metadata on top if available.
+  // Special handling for follow-up lifecycle interactions.
   const contactUpdate = {
     last_interaction_at: interaction.created_at,
   } as ContactUpdate;
+
+  if (type === "followup_done") {
+    // Clear the follow-up so the contact doesn't re-appear in tomorrow's list
+    contactUpdate.next_followup_at = null;
+    contactUpdate.followup_reason = null;
+  } else if (type === "followup_skipped") {
+    // Defer by 7 days
+    const deferred = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    contactUpdate.next_followup_at = deferred.toISOString();
+  }
 
   let tier1Result = null;
   const openAiConfigured = Boolean(process.env.OPENAI_API_KEY);
