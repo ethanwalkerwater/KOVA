@@ -21,7 +21,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { runTier1 } from "@/lib/ai/regenerate";
+import { runTier1, runParseContact } from "@/lib/ai/regenerate";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 import type { Interaction, InteractionType } from "@/types/interaction";
 import type { Database } from "@/types/database";
@@ -110,8 +110,8 @@ export async function POST(request: NextRequest) {
 
   const { name, raw_content, type = "text_note", source_context } = body;
 
-  if (!name?.trim() || !raw_content?.trim()) {
-    return NextResponse.json({ error: "name and raw_content are required" }, { status: 400 });
+  if (!raw_content?.trim()) {
+    return NextResponse.json({ error: "raw_content is required" }, { status: 400 });
   }
 
   if (raw_content.length > MAX_RAW_CONTENT) {
@@ -125,10 +125,45 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Invalid interaction type: ${type}` }, { status: 400 });
   }
 
-  // Create the contact
+  // Resolve contact name — either from the request body or AI-extracted from the note.
+  let resolvedName = name?.trim() ?? "";
+  let extractedTitle: string | null = null;
+  let extractedCompany: string | null = null;
+  let extractedEmail: string | null = null;
+  let extractedPhone: string | null = null;
+  let extractedContext: string | null = source_context?.trim() ?? null;
+
+  if (!resolvedName && process.env.OPENAI_API_KEY) {
+    const parsed = await runParseContact(raw_content.trim());
+    if (parsed?.name) {
+      resolvedName = parsed.name;
+      extractedTitle = parsed.title;
+      extractedCompany = parsed.company;
+      extractedEmail = parsed.email;
+      extractedPhone = parsed.phone;
+      // Use AI-extracted context only if the caller didn't supply one
+      if (!extractedContext) extractedContext = parsed.source_context;
+    }
+  }
+
+  if (!resolvedName) {
+    return NextResponse.json(
+      { error: "Could not determine contact name. Please provide a name or mention it in your note." },
+      { status: 400 },
+    );
+  }
+
+  // Create the contact — seed with any identity fields extracted by AI
   const { data: contact, error: contactError } = await supabase
     .from("contacts")
-    .insert({ owner_id: user.id, name: name.trim() })
+    .insert({
+      owner_id: user.id,
+      name: resolvedName,
+      ...(extractedTitle && { title: extractedTitle }),
+      ...(extractedCompany && { company: extractedCompany }),
+      ...(extractedEmail && { email: extractedEmail }),
+      ...(extractedPhone && { phone: extractedPhone }),
+    })
     .select()
     .single();
 
@@ -145,7 +180,7 @@ export async function POST(request: NextRequest) {
       owner_id: user.id,
       type: type as InteractionType,
       raw_content: raw_content.trim(),
-      source_context: source_context ?? null,
+      source_context: extractedContext,
       ai_generated: false,
     })
     .select()

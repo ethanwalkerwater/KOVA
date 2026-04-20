@@ -286,12 +286,12 @@ export function CaptureSheet() {
 
     try {
       if (isNewContact) {
-        const name = form.nameInput.trim() || "Unknown contact";
         const res = await fetch("/api/contacts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name,
+            // If blank, the server will extract name from raw_content via AI
+            name: form.nameInput.trim() || undefined,
             raw_content: content,
             type: interactionType,
             source_context: form.sourceContext.trim() || undefined,
@@ -441,6 +441,11 @@ export function CaptureSheet() {
                 className="h-11 rounded-xl border border-border bg-surface-secondary px-3 text-fg-primary text-sm
                            placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
               />
+              {!form.nameInput.trim() && (
+                <p className="text-fg-muted text-xs">
+                  Leave blank — AI will extract the name from your note
+                </p>
+              )}
             </div>
           )}
 

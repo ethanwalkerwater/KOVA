@@ -15,8 +15,10 @@ import type { FullRegenerationOutput, Tier1Output, ValidationResult } from "./ty
 import {
   TIER1_SYSTEM_PROMPT,
   TIER2_SYSTEM_PROMPT,
+  PARSE_CONTACT_SYSTEM_PROMPT,
   buildTier1UserPrompt,
   buildTier2UserPrompt,
+  buildParseContactPrompt,
 } from "./prompts";
 import { validateTier1Output, validateFullOutput } from "./validators";
 import { estimateCost } from "./cost-estimator";
@@ -82,6 +84,48 @@ export async function runTier1(interaction: Interaction): Promise<Tier1Result> {
   const validation = validateTier1Output(output, [interaction]);
 
   return { output, validation, estimatedCostUsd: usd };
+}
+
+// ── Parse contact (initial identity extraction) ───────────────────────────────
+
+export interface ParseContactResult {
+  name: string | null;
+  title: string | null;
+  company: string | null;
+  email: string | null;
+  phone: string | null;
+  source_context: string | null;
+  interaction_type: string | null;
+}
+
+/**
+ * Extract initial identity information from a raw note.
+ * Used when creating a new contact without a known name — the AI reads the
+ * raw note and returns whatever identity fields it can find.
+ *
+ * Returns null if the API call fails or produces no parseable output.
+ */
+export async function runParseContact(rawInput: string): Promise<ParseContactResult | null> {
+  const model = process.env.OPENAI_MODEL_FALLBACK ?? "gpt-4o-mini";
+  const openai = getOpenAI();
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model,
+      messages: [
+        { role: "system", content: PARSE_CONTACT_SYSTEM_PROMPT },
+        { role: "user", content: buildParseContactPrompt(rawInput) },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+    });
+
+    const raw = completion.choices[0].message.content ?? "{}";
+    return JSON.parse(raw) as ParseContactResult;
+  } catch (err) {
+    console.warn("[runParseContact] failed (non-fatal):", err);
+    return null;
+  }
 }
 
 // ── Tier 2/3 ──────────────────────────────────────────────────────────────────
