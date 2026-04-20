@@ -178,7 +178,12 @@ export async function POST(request: NextRequest) {
 
   const interaction = inserted as Interaction;
 
-  // ── Trigger Tier 1 to update metadata from research ──────────────────────────
+  // ── Stamp last_interaction_at + trigger Tier 1 ───────────────────────────────
+
+  await supabase
+    .from("contacts")
+    .update({ last_interaction_at: interaction.created_at })
+    .eq("id", contact_id);
 
   try {
     await runTier1(interaction);
