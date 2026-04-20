@@ -223,9 +223,15 @@ export function LeadsScreen() {
           throw new Error(body.error ?? "Failed to add contact");
         }
 
-        // Update store so the contact appears immediately in Clients
-        const data = (await res.json()) as { contact: Contact; interaction: Interaction };
-        upsertContact({ ...data.contact, sections: [], interactions: [data.interaction] });
+        // Apply Tier 1 metadata (contact_update) on top of the base contact row
+        // so ai_summary, stage, relationship_score etc. are visible immediately.
+        const data = (await res.json()) as {
+          contact: Contact;
+          interaction: Interaction;
+          contact_update?: Partial<Contact>;
+        };
+        const freshContact = { ...data.contact, ...(data.contact_update ?? {}) };
+        upsertContact({ ...freshContact, sections: [], interactions: [data.interaction] });
 
         addToast(`${lead.name} added to Clients`, "success");
       } catch (err) {

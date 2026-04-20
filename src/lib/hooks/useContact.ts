@@ -27,7 +27,10 @@ export function useContact(id: string) {
     if (!id) return;
 
     async function load() {
-      setLoading(true);
+      // Only show the full loading skeleton when there's nothing cached to show.
+      // If the contact is already in the store (e.g. navigating from the list),
+      // do a silent background refresh so the UI never goes blank.
+      if (!cached) setLoading(true);
       setError(null);
 
       if (!isSupabaseConfigured()) {
