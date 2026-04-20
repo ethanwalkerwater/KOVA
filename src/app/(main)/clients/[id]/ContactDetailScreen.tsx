@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft, Zap, Loader2, Plus, RefreshCw, Globe, Pencil,
-  Mail, Phone, ExternalLink, MapPin, Copy, Check,
+  Mail, Phone, ExternalLink, MapPin, Copy, Check, X,
 } from "lucide-react";
 import { StatusBar, Avatar, Chip } from "@/components/ui";
 import { SectionRenderer } from "@/components/contacts/SectionRenderer";
@@ -14,6 +14,7 @@ import { ContactEditSheet } from "@/components/contacts/ContactEditSheet";
 import { useContact } from "@/lib/hooks/useContact";
 import { useRegenerate } from "@/lib/hooks/useRegenerate";
 import { useUIStore } from "@/stores/ui";
+import { useContactsStore } from "@/stores/contacts";
 import type { Contact } from "@/types/contact";
 import type { Section } from "@/types/section";
 import { cn } from "@/lib/utils/cn";
@@ -81,6 +82,11 @@ export function ContactDetailScreen({ id }: Props) {
   const [enriching, setEnriching] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  // Section edit state
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editReason, setEditReason] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
   const router = useRouter();
 
   const copyToClipboard = useCallback((text: string, field: string) => {
@@ -91,6 +97,7 @@ export function ContactDetailScreen({ id }: Props) {
   }, []);
   const { openCapture } = useUIStore();
   const { addToast } = useUIStore();
+  const { upsertSection } = useContactsStore();
 
   const { contact, loading, error } = useContact(id);
   const { regenerating, trigger: regenerate } = useRegenerate(id);
@@ -119,6 +126,58 @@ export function ContactDetailScreen({ id }: Props) {
       addToast(err instanceof Error ? err.message : "Enrichment failed", "error");
     } finally {
       setEnriching(false);
+    }
+  }
+
+  // ── Section edit / restore ─────────────────────────────────────────────────
+
+  function handleEditSection(section: Section) {
+    setEditingSection(section);
+    setEditContent(section.user_overrides_md ?? section.content_md);
+    setEditReason("");
+  }
+
+  async function handleSaveEdit() {
+    if (!editingSection || !contact) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/sections/${editingSection.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_overrides_md: editContent.trim() || null,
+          override_reason: editReason.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Save failed");
+      }
+      const data = (await res.json()) as { section: Section };
+      upsertSection(contact.id, data.section);
+      addToast("Section updated", "success");
+      setEditingSection(null);
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Save failed", "error");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function handleRestoreSection(section: Section) {
+    if (!contact) return;
+    try {
+      const res = await fetch(`/api/sections/${section.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_overrides_md: null, override_reason: null }),
+      });
+      if (!res.ok) throw new Error("Restore failed");
+      const data = (await res.json()) as { section: Section };
+      upsertSection(contact.id, data.section);
+      addToast("Restored AI version", "success");
+    } catch {
+      addToast("Restore failed", "error");
     }
   }
 
@@ -475,6 +534,8 @@ export function ContactDetailScreen({ id }: Props) {
                 section={section}
                 defaultExpanded={section.slug === "profile"}
                 className="mx-4 mb-3"
+                onEdit={handleEditSection}
+                onRestoreAI={handleRestoreSection}
               />
             ))
           )}
@@ -489,6 +550,8 @@ export function ContactDetailScreen({ id }: Props) {
               section={outreachSection}
               defaultExpanded={true}
               className="mx-4 mb-3"
+              onEdit={handleEditSection}
+              onRestoreAI={handleRestoreSection}
             />
           )}
           {/* Raw append-only interaction log */}
@@ -505,6 +568,8 @@ export function ContactDetailScreen({ id }: Props) {
               section={researchSection}
               defaultExpanded={false}
               className="mx-4 mb-3"
+              onEdit={handleEditSection}
+              onRestoreAI={handleRestoreSection}
             />
           )}
         </div>
@@ -517,6 +582,82 @@ export function ContactDetailScreen({ id }: Props) {
         onClose={() => setEditOpen(false)}
         onDelete={() => router.replace("/clients")}
       />
+
+      {/* Section edit bottom sheet */}
+      {editingSection && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-40"
+            onClick={() => setEditingSection(null)}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Edit ${editingSection.title} section`}
+            className="fixed bottom-0 left-0 right-0 z-50 bg-surface-primary rounded-t-3xl shadow-2xl
+                       max-h-[90dvh] flex flex-col animate-in slide-in-from-bottom duration-300"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 shrink-0 border-b border-border-light">
+              <div className="absolute left-1/2 -translate-x-1/2 top-3 w-10 h-1 rounded-full bg-border" />
+              <h2 className="text-fg-primary font-semibold text-base">
+                Edit {editingSection.title}
+              </h2>
+              <button
+                onClick={() => setEditingSection(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-secondary"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4 text-fg-secondary" />
+              </button>
+            </div>
+
+            {/* Fields */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0 space-y-3">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                rows={10}
+                className="w-full rounded-xl border border-border bg-surface-secondary p-3
+                           text-sm text-fg-primary placeholder:text-fg-muted
+                           focus:outline-none focus:ring-2 focus:ring-accent resize-y font-mono"
+                placeholder="Write markdown content..."
+              />
+              <div>
+                <span className="text-fg-secondary text-xs font-medium">
+                  Reason for edit (optional)
+                </span>
+                <input
+                  type="text"
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  placeholder="e.g. Corrected company name"
+                  className="mt-1 w-full h-10 rounded-xl border border-border bg-surface-secondary px-3
+                             text-sm text-fg-primary placeholder:text-fg-muted
+                             focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </div>
+              <p className="text-fg-muted text-xs">
+                Your edits override the AI version. The original is restored when you regenerate.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="shrink-0 px-5 pb-[calc(21px+env(safe-area-inset-bottom,0px))] pt-3 border-t border-border-light">
+              <button
+                onClick={() => void handleSaveEdit()}
+                disabled={editSaving}
+                className="w-full h-12 rounded-2xl bg-accent text-fg-inverse font-semibold text-sm
+                           flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-all"
+              >
+                {editSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {editSaving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
