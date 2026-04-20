@@ -1,18 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 
 type Mode = "sign_in" | "sign_up";
 
-export default function LoginPage() {
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  auth_callback_failed: "Email confirmation failed. Please try signing in again.",
+  invalid_credentials: "Invalid email or password.",
+  email_not_confirmed: "Please confirm your email address before signing in.",
+};
+
+// The inner component reads searchParams — must be wrapped in <Suspense>.
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Translate redirect errors (e.g. ?error=auth_callback_failed from /auth/callback)
+  // into user-friendly messages shown pre-filled in the error banner.
+  const urlError = searchParams.get("error");
+  const initialError = urlError ? (AUTH_ERROR_MESSAGES[urlError] ?? "An authentication error occurred.") : null;
+
   const [mode, setMode] = useState<Mode>("sign_in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [success, setSuccess] = useState<string | null>(null);
 
   // Phase 1: Supabase not configured — skip auth entirely
@@ -175,5 +189,21 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// Suspense boundary required because LoginContent calls useSearchParams(),
+// which opts out of static prerendering for this segment.
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-dvh bg-surface-secondary flex items-center justify-center">
+        <div className="h-12 w-12 rounded-2xl bg-accent flex items-center justify-center">
+          <span className="text-fg-inverse font-bold text-xl">K</span>
+        </div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
