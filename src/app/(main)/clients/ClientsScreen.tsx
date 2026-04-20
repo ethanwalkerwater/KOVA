@@ -10,7 +10,8 @@ import { useUIStore } from "@/stores/ui";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 import { formatRelativeTime } from "@/lib/utils/date";
-import type { Contact, PipelineStage } from "@/types/contact";
+import type { PipelineStage } from "@/types/contact";
+import type { ContactWithRelations } from "@/stores/contacts";
 
 type Filter = "all" | "high" | "engaged" | "negotiating";
 
@@ -45,7 +46,7 @@ function getStageChip(
 }
 
 interface ContactCardProps {
-  contact: Contact;
+  contact: ContactWithRelations;
   isLast: boolean;
 }
 
@@ -61,11 +62,19 @@ function ContactCard({ contact, isLast }: ContactCardProps) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-fg-primary text-sm">{contact.name}</span>
-          {contact.last_interaction_at && (
+          {contact.pending ? (
+            <span className="inline-flex items-center gap-0.5 ml-2 shrink-0 text-fg-muted text-xs">
+              <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Syncing...
+            </span>
+          ) : contact.last_interaction_at ? (
             <span className="text-fg-muted text-xs ml-2 shrink-0" suppressHydrationWarning>
               {formatRelativeTime(contact.last_interaction_at)}
             </span>
-          )}
+          ) : null}
         </div>
         {(contact.title || contact.company) && (
           <p className="text-fg-secondary text-xs truncate">

@@ -18,6 +18,11 @@ import type { Section } from "@/types/section";
 export interface ContactWithRelations extends Contact {
   sections: Section[];
   interactions: Interaction[];
+  /**
+   * True for contacts created offline that haven't yet synced to the server.
+   * Local-only flag — never sent to Supabase.
+   */
+  pending?: boolean;
 }
 
 interface ContactsState {
@@ -38,6 +43,12 @@ interface ContactsState {
 
   /** Remove a contact from the cache (after successful DELETE). */
   removeContact: (id: string) => void;
+
+  /**
+   * Replace a pending (offline-created) contact with the real server-assigned one.
+   * Moves the contact from oldId → newContact.id, preserving list position.
+   */
+  replaceContact: (oldId: string, newContact: ContactWithRelations) => void;
 
   /** Append a new interaction to an existing contact (optimistic). */
   appendInteraction: (contactId: string, interaction: Interaction) => void;
@@ -97,6 +108,19 @@ export const useContactsStore = create<ContactsState>((set) => ({
       return {
         contacts: remaining,
         listIds: state.listIds.filter((lid) => lid !== id),
+      };
+    }),
+
+  replaceContact: (oldId, newContact) =>
+    set((state) => {
+      // Swap the old (local) ID for the real server ID in both the map and the list.
+      const { [oldId]: _stub, ...remaining } = state.contacts;
+      const listIds = state.listIds.map((lid) =>
+        lid === oldId ? newContact.id : lid,
+      );
+      return {
+        contacts: { ...remaining, [newContact.id]: newContact },
+        listIds,
       };
     }),
 

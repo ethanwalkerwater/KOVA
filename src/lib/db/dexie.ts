@@ -43,23 +43,52 @@ export interface PendingSync {
   attempt_count: number;
 }
 
+/**
+ * A new contact that was created offline and hasn't been synced to Supabase yet.
+ * The payload is the full POST body for /api/contacts.
+ * Once synced, the local contact entry (with local_id) is replaced by the real one.
+ */
+export interface PendingContact {
+  /** Client-generated temporary ID (prefixed "local_contact_"). */
+  local_id: string;
+  /** Serialized payload ready to POST to /api/contacts. */
+  payload: string;
+  /** ISO timestamp when the contact was created offline. */
+  created_at: string;
+  /** Retry counter for exponential back-off (max 5). */
+  attempt_count: number;
+}
+
 // ── Database class ─────────────────────────────────────────────────────────────
 
 class KovaDatabase extends Dexie {
   interactions!: EntityTable<LocalInteraction, "id">;
   contacts!: EntityTable<Contact, "id">;
   pending_sync!: EntityTable<PendingSync, "local_id">;
+  pending_contacts!: EntityTable<PendingContact, "local_id">;
 
   constructor() {
     super("kova_v1");
 
+    // Version 1: initial schema (interactions, contacts, pending_sync)
     this.version(1).stores({
-      // Indexed fields (use ++ for auto-increment PK, & for unique, * for multi-entry)
       interactions:
         "id, contact_id, owner_id, type, created_at, pending",
       contacts:
         "id, owner_id, name, stage, importance, last_interaction_at",
       pending_sync:
+        "local_id, created_at, attempt_count",
+    });
+
+    // Version 2: add pending_contacts table for offline new-contact creation
+    this.version(2).stores({
+      interactions:
+        "id, contact_id, owner_id, type, created_at, pending",
+      contacts:
+        "id, owner_id, name, stage, importance, last_interaction_at",
+      pending_sync:
+        "local_id, created_at, attempt_count",
+      pending_contacts:
         "local_id, created_at, attempt_count",
     });
   }
@@ -194,5 +223,93 @@ export async function getCachedContacts(): Promise<Contact[]> {
     return await db.contacts.orderBy("last_interaction_at").reverse().toArray();
   } catch {
     return [];
+  }
+}
+
+// ── Pending-contact helpers (offline new-contact creation) ────────────────────
+
+/** Generate a temporary local ID for a contact created offline. */
+export function localContactId(): string {
+  return `local_contact_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/**
+ * Queue a new contact for server creation.
+ * Payload is the POST body that will be sent to /api/contacts on reconnect.
+ */
+export async function queuePendingContact(
+  localId: string,
+  payload: object,
+): Promise<void> {
+  try {
+    const db = getDb();
+    await db.pending_contacts.put({
+      local_id: localId,
+      payload: JSON.stringify(payload),
+      created_at: new Date().toISOString(),
+      attempt_count: 0,
+    });
+  } catch (err) {
+    console.warn("[dexie] Failed to queue pending contact:", err);
+  }
+}
+
+/**
+ * Get all pending contacts, sorted oldest-first.
+ */
+export async function getPendingContacts(): Promise<PendingContact[]> {
+  try {
+    const db = getDb();
+    return await db.pending_contacts.orderBy("created_at").toArray();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Delete a pending contact entry after successful sync.
+ */
+export async function removePendingContact(localId: string): Promise<void> {
+  try {
+    const db = getDb();
+    await db.pending_contacts.delete(localId);
+    // Also remove the stub contact from the contacts cache
+    await db.contacts.delete(localId);
+  } catch (err) {
+    console.warn("[dexie] Failed to remove pending contact:", err);
+  }
+}
+
+/**
+ * Update the contact_id in any pending interactions that reference a local contact ID.
+ * Called after a pending contact is successfully synced to server.
+ */
+export async function patchInteractionContactId(
+  localContactId: string,
+  realContactId: string,
+): Promise<void> {
+  try {
+    const db = getDb();
+    // Update pending_sync entries whose payload has the local contact ID
+    const pending = await db.pending_sync.toArray();
+    for (const item of pending) {
+      const payload = JSON.parse(item.payload) as Record<string, unknown>;
+      if (payload.contact_id === localContactId) {
+        payload.contact_id = realContactId;
+        await db.pending_sync.update(item.local_id, {
+          payload: JSON.stringify(payload),
+        });
+      }
+    }
+    // Also update any cached local interactions
+    const localInteractions = await db.interactions
+      .where("contact_id")
+      .equals(localContactId)
+      .toArray();
+    for (const interaction of localInteractions) {
+      await db.interactions.update(interaction.id, { contact_id: realContactId });
+    }
+  } catch (err) {
+    console.warn("[dexie] Failed to patch interaction contact IDs:", err);
   }
 }

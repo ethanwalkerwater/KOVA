@@ -286,16 +286,98 @@ export function CaptureSheet() {
 
     try {
       if (isNewContact) {
+        const newContactPayload = {
+          // If blank, the server will extract name from raw_content via AI
+          name: form.nameInput.trim() || undefined,
+          raw_content: content,
+          type: interactionType,
+          source_context: form.sourceContext.trim() || undefined,
+        };
+
+        // ── Offline path — create stub contact, queue for sync ────────────────
+        if (typeof window !== "undefined" && !navigator.onLine) {
+          const {
+            localContactId: makeLocalContactId,
+            localInteractionId,
+            queuePendingContact,
+            cacheInteraction,
+            cacheContact,
+          } = await import("@/lib/db/dexie");
+          const localCId = makeLocalContactId();
+          const localIId = localInteractionId();
+          const now = new Date().toISOString();
+
+          // Stub contact — minimal fields; AI will fill in the rest after sync
+          const stubContact: import("@/types/contact").Contact = {
+            id: localCId,
+            owner_id: "",
+            name: form.nameInput.trim() || "New Contact",
+            title: null,
+            company: null,
+            email: null,
+            phone: null,
+            linkedin_url: null,
+            location: null,
+            stage: "new_lead",
+            importance: "medium",
+            tags: [],
+            source: interactionType === "voice_memo" ? "voice" : "manual",
+            last_interaction_at: now,
+            next_followup_at: null,
+            followup_reason: null,
+            company_industry: null,
+            company_size: null,
+            company_stage: null,
+            company_hq: null,
+            company_description: null,
+            deal_value: null,
+            deal_currency: "USD",
+            deal_probability: null,
+            expected_close_date: null,
+            ai_summary: null,
+            relationship_score: null,
+            key_topics: [],
+            suggested_next_step: null,
+            created_at: now,
+            updated_at: now,
+          };
+
+          const pendingInteraction: import("@/types/interaction").Interaction & {
+            pending?: boolean;
+          } = {
+            id: localIId,
+            contact_id: localCId,
+            owner_id: "",
+            type: interactionType,
+            raw_content: content,
+            media_url: null,
+            source_context: form.sourceContext.trim() || null,
+            ai_generated: false,
+            created_at: now,
+          };
+
+          await cacheContact(stubContact);
+          await cacheInteraction({ ...pendingInteraction, pending: true });
+          await queuePendingContact(localCId, newContactPayload);
+
+          upsertContact({
+            ...stubContact,
+            sections: [],
+            interactions: [pendingInteraction],
+            pending: true,
+          });
+
+          dispatch({ type: "set_success", message: "Saved offline" });
+          addToast("Contact saved offline — will sync when connected", "info");
+          setTimeout(() => closeCapture(), 800);
+          return;
+        }
+
+        // ── Online path ───────────────────────────────────────────────────────
         const res = await fetch("/api/contacts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            // If blank, the server will extract name from raw_content via AI
-            name: form.nameInput.trim() || undefined,
-            raw_content: content,
-            type: interactionType,
-            source_context: form.sourceContext.trim() || undefined,
-          }),
+          body: JSON.stringify(newContactPayload),
         });
 
         if (!res.ok) {
