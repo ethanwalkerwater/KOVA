@@ -29,7 +29,13 @@ const MAX_ATTEMPTS = 5;
 
 export function useSyncPending() {
   const syncingRef = useRef(false);
-  const { replaceContact, upsertContact, contacts } = useContactsStore();
+
+  // Read store actions once; they're stable references (Zustand never recreates them).
+  // We deliberately do NOT include the `contacts` map in the callback deps — we use
+  // `useContactsStore.getState()` at call-time instead so the drainQueue callback
+  // (and the event listener registration) stays stable across contact updates.
+  const replaceContact = useContactsStore((s) => s.replaceContact);
+  const upsertContact = useContactsStore((s) => s.upsertContact);
 
   const drainQueue = useCallback(async () => {
     if (!isSupabaseConfigured()) return;
@@ -129,9 +135,11 @@ export function useSyncPending() {
             };
             await markSynced(item.local_id, interaction.id);
 
-            // Patch the pending flag in Zustand for the real interaction
+            // Patch the pending flag in Zustand for the real interaction.
+            // Use getState() so we always read the latest store snapshot,
+            // not a stale closure over the contacts map at render time.
             const contactId = payload.contact_id as string;
-            const cached = contacts[contactId];
+            const cached = useContactsStore.getState().contacts[contactId];
             if (cached) {
               const patchedInteractions = cached.interactions.map((i) =>
                 i.id === item.local_id
@@ -159,7 +167,7 @@ export function useSyncPending() {
     } finally {
       syncingRef.current = false;
     }
-  }, [replaceContact, upsertContact, contacts]);
+  }, [replaceContact, upsertContact]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

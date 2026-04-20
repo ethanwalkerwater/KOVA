@@ -27,6 +27,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 import type { Database } from "@/types/database";
 
 type ContactUpdate = Database["public"]["Tables"]["contacts"]["Update"];
@@ -65,6 +66,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const rl = checkRateLimit("contacts_id_get", user.id, { maxRequests: 300, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
   const { data, error } = await supabase
     .from("contacts")
     .select("*")
@@ -87,6 +91,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = checkRateLimit("contacts_id_patch", user.id, { maxRequests: 120, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   let body: Record<string, unknown>;
   try {
@@ -136,6 +143,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = checkRateLimit("contacts_id_delete", user.id, { maxRequests: 30, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   // Verify ownership first
   const { data: existing } = await supabase

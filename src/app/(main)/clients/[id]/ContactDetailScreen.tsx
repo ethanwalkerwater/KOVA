@@ -18,6 +18,7 @@ import { useContactsStore } from "@/stores/contacts";
 import type { Contact } from "@/types/contact";
 import type { Section } from "@/types/section";
 import { cn } from "@/lib/utils/cn";
+import { isLocalId } from "@/lib/db/dexie";
 
 interface Props {
   id: string;
@@ -295,6 +296,19 @@ export function ContactDetailScreen({ id }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Pending banner — shown while contact awaits server sync */}
+      {isLocalId(contact.id) && (
+        <div className="mx-4 mb-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center gap-2">
+          <svg className="w-4 h-4 text-amber-500 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <p className="text-amber-700 text-xs">
+            Syncing to server — AI profile will be generated once online.
+          </p>
+        </div>
+      )}
 
       {/* Profile Header */}
       <div className="bg-surface-primary rounded-3xl mx-4 mb-4 p-5 border border-border">

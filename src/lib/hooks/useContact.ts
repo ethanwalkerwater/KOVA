@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import { useContactsStore, selectContact } from "@/stores/contacts";
 import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { isLocalId } from "@/lib/db/dexie";
 import type { ContactWithRelations } from "@/stores/contacts";
 import type { Section } from "@/types/section";
 import type { Interaction } from "@/types/interaction";
@@ -25,6 +26,14 @@ export function useContact(id: string) {
 
   useEffect(() => {
     if (!id) return;
+
+    // Pending (offline-created) contacts have local IDs — they only exist in the
+    // Zustand store until synced. Skip the server fetch entirely; once the contact
+    // syncs the parent component will receive the real ID via replaceContact.
+    if (isLocalId(id)) {
+      setLoading(false);
+      return;
+    }
 
     async function load() {
       // Only show the full loading skeleton when there's nothing cached to show.
