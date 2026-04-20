@@ -303,12 +303,15 @@ export function CaptureSheet() {
           throw new Error(body.error ?? "Failed to create contact");
         }
 
-        // Update store so the contact appears immediately in the list
+        // Update store so the contact appears immediately in the list.
+        // Apply contact_update (Tier 1 metadata) on top of the base contact row.
         const data = (await res.json()) as {
           contact: import("@/types/contact").Contact;
           interaction: import("@/types/interaction").Interaction;
+          contact_update?: Partial<import("@/types/contact").Contact>;
         };
-        upsertContact({ ...data.contact, sections: [], interactions: [data.interaction] });
+        const freshContact = { ...data.contact, ...(data.contact_update ?? {}) };
+        upsertContact({ ...freshContact, sections: [], interactions: [data.interaction] });
 
         dispatch({ type: "set_success", message: "Contact added" });
         addToast("Contact created", "success");

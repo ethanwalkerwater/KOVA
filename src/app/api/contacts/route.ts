@@ -227,5 +227,10 @@ export async function POST(request: NextRequest) {
 
   await supabase.from("contacts").update(contactUpdate).eq("id", contact.id);
 
-  return NextResponse.json({ contact, interaction, tier1: tier1Result }, { status: 201 });
+  // Return contact_update alongside the base contact so the client can apply
+  // Tier 1 results without a second round-trip (same pattern as interactions POST).
+  return NextResponse.json(
+    { contact, interaction, contact_update: contactUpdate, tier1: tier1Result },
+    { status: 201 },
+  );
 }
