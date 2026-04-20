@@ -63,15 +63,24 @@ export const useContactsStore = create<ContactsState>((set) => ({
   loading: false,
   error: null,
 
-  setContacts: (contacts) => {
-    const map: Record<string, ContactWithRelations> = {};
-    const ids: string[] = [];
-    for (const c of contacts) {
-      map[c.id] = c;
-      ids.push(c.id);
-    }
-    set({ contacts: map, listIds: ids, loading: false, error: null });
-  },
+  setContacts: (contacts) =>
+    set((state) => {
+      const map: Record<string, ContactWithRelations> = {};
+      const ids: string[] = [];
+      for (const c of contacts) {
+        const existing = state.contacts[c.id];
+        // The list API returns empty sections/interactions arrays.
+        // Preserve any already-loaded relations so navigating back to a detail
+        // page doesn't briefly flash empty sections after the user visited it.
+        map[c.id] = {
+          ...c,
+          sections: existing?.sections?.length ? existing.sections : c.sections,
+          interactions: existing?.interactions?.length ? existing.interactions : c.interactions,
+        };
+        ids.push(c.id);
+      }
+      return { contacts: map, listIds: ids, loading: false, error: null };
+    }),
 
   upsertContact: (contact) =>
     set((state) => {
