@@ -15,6 +15,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 import type { Contact } from "@/types/contact";
 
 const CSV_HEADERS = [
@@ -78,6 +79,10 @@ export async function GET(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit: 10 exports per hour per user (full-table scan, non-trivial)
+  const rl = checkRateLimit("export", user.id, { maxRequests: 10, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   const format = request.nextUrl.searchParams.get("format") ?? "csv";
   if (!["csv", "json"].includes(format)) {

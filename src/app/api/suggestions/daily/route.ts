@@ -15,6 +15,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 import type { Contact } from "@/types/contact";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -34,6 +35,10 @@ export async function GET(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit: 120 suggestion fetches per hour per user (~2/min, enough for auto-refresh)
+  const rl = checkRateLimit("suggestions_daily", user.id, { maxRequests: 120, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   const limit = Math.min(parseInt(request.nextUrl.searchParams.get("limit") ?? "5", 10), 10);
   const now = new Date();

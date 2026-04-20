@@ -15,6 +15,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 import type { Database } from "@/types/database";
 
 type SectionUpdate = Database["public"]["Tables"]["sections"]["Update"];
@@ -31,6 +32,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit: 100 section overrides per hour per user
+  const rl = checkRateLimit("sections_patch", user.id, { maxRequests: 100, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   let body: { user_overrides_md?: string | null; override_reason?: string | null };
   try {

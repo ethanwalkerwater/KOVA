@@ -98,10 +98,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify the contact belongs to the user
+  // Verify the contact belongs to the user; also fetch last_tier1_at for debounce check.
   const { data: contact, error: contactError } = await supabase
     .from("contacts")
-    .select("id")
+    .select("id, last_tier1_at, tier1_count")
     .eq("id", contact_id)
     .eq("owner_id", user.id)
     .single();
@@ -148,10 +148,18 @@ export async function POST(request: NextRequest) {
     contactUpdate.next_followup_at = deferred.toISOString();
   }
 
+  // Tier 1 debounce — if Tier 1 ran within the last 10 seconds for this contact,
+  // skip it to avoid redundant AI calls during rapid interaction bursts (e.g. at
+  // an event, scanning 5 cards in quick succession). The interaction is still
+  // saved; the next non-debounced call or manual regeneration will pick it up.
+  const TIER1_DEBOUNCE_MS = 10_000;
+  const lastTier1 = contact?.last_tier1_at ? new Date(contact.last_tier1_at).getTime() : 0;
+  const tier1Debounced = Date.now() - lastTier1 < TIER1_DEBOUNCE_MS;
+
   let tier1Result = null;
   const openAiConfigured = Boolean(process.env.OPENAI_API_KEY);
 
-  if (openAiConfigured) {
+  if (openAiConfigured && !tier1Debounced) {
     try {
       tier1Result = await runTier1(interaction);
 
@@ -177,6 +185,9 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+      // Stamp Tier 1 timestamp + increment counter for debounce tracking
+      contactUpdate.last_tier1_at = new Date().toISOString();
+      contactUpdate.tier1_count = ((contact?.tier1_count ?? 0) + 1);
     } catch (err) {
       console.error("[interactions] Tier 1 failed (non-fatal):", err);
     }

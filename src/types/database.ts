@@ -82,6 +82,9 @@ export interface Database {
           // System
           created_at: string;
           updated_at: string;
+          // Production hardening (migration 002)
+          last_tier1_at: string | null;
+          tier1_count: number;
         };
         Insert: {
           id?: string;
@@ -115,6 +118,8 @@ export interface Database {
           suggested_next_step?: string | null;
           created_at?: string;
           updated_at?: string;
+          last_tier1_at?: string | null;
+          tier1_count?: number;
         };
         Update: {
           id?: string;
@@ -148,6 +153,8 @@ export interface Database {
           suggested_next_step?: string | null;
           created_at?: string;
           updated_at?: string;
+          last_tier1_at?: string | null;
+          tier1_count?: number;
         };
         // Required by Supabase's GenericTable constraint
         Relationships: [];

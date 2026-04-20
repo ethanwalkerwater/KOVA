@@ -17,6 +17,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -25,6 +26,10 @@ export async function GET(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit: 300 section reads per hour per user (cheap DB query)
+  const rl = checkRateLimit("sections_read", user.id, { maxRequests: 300, windowMs: 60 * 60_000 });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   const contactId = request.nextUrl.searchParams.get("contact_id");
   if (!contactId) {
