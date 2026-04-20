@@ -316,15 +316,47 @@ export function CaptureSheet() {
         dispatch({ type: "set_success", message: "Contact added" });
         addToast("Contact created", "success");
       } else {
+        const syncPayload = {
+          contact_id: captureContactId,
+          raw_content: content,
+          type: interactionType,
+          source_context: form.sourceContext.trim() || undefined,
+        };
+
+        // ── Offline path — write locally, queue for sync ──────────────────────
+        if (typeof window !== "undefined" && !navigator.onLine) {
+          const { localInteractionId, cacheInteraction, queuePendingSync } = await import(
+            "@/lib/db/dexie"
+          );
+          const localId = localInteractionId();
+          const now = new Date().toISOString();
+          const pendingInteraction: import("@/types/interaction").Interaction & { pending?: boolean } = {
+            id: localId,
+            contact_id: captureContactId!,
+            owner_id: "", // filled in by server on sync
+            type: interactionType,
+            raw_content: content,
+            media_url: null,
+            source_context: form.sourceContext.trim() || null,
+            ai_generated: false,
+            created_at: now,
+          };
+
+          await cacheInteraction({ ...pendingInteraction, pending: true });
+          await queuePendingSync(localId, syncPayload);
+
+          if (captureContactId) appendInteraction(captureContactId, pendingInteraction);
+          dispatch({ type: "set_success", message: "Saved offline" });
+          addToast("Saved offline — will sync when connected", "info");
+          setTimeout(() => closeCapture(), 800);
+          return;
+        }
+
+        // ── Online path ───────────────────────────────────────────────────────
         const res = await fetch("/api/interactions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contact_id: captureContactId,
-            raw_content: content,
-            type: interactionType,
-            source_context: form.sourceContext.trim() || undefined,
-          }),
+          body: JSON.stringify(syncPayload),
         });
 
         if (!res.ok) {
