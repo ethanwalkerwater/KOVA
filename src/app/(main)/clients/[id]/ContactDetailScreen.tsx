@@ -67,6 +67,15 @@ function getScoreColor(score: number): string {
   return "bg-surface-secondary text-fg-secondary";
 }
 
+function formatDealValue(value: number, currency: string): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency || "USD",
+    maximumFractionDigits: 0,
+    notation: value >= 1_000_000 ? "compact" : "standard",
+  }).format(value);
+}
+
 export function ContactDetailScreen({ id }: Props) {
   const [activeTab, setActiveTab] = useState<"info" | "notes">("info");
   const [enriching, setEnriching] = useState(false);
@@ -181,6 +190,7 @@ export function ContactDetailScreen({ id }: Props) {
   const infoSections = (contact.sections ?? []).filter((s: Section) =>
     ["profile", "company", "follow-up"].includes(s.slug),
   );
+  const outreachSection = (contact.sections ?? []).find((s: Section) => s.slug === "outreach");
   const researchSection = (contact.sections ?? []).find((s: Section) => s.slug === "research");
 
   const score = contact.relationship_score ?? 0;
@@ -246,6 +256,22 @@ export function ContactDetailScreen({ id }: Props) {
               {contact.importance === "high" && <Chip label="High Intent" variant="high-intent" />}
               {contact.importance === "medium" && <Chip label="Medium" variant="connected" />}
             </div>
+            {/* Deal tracking */}
+            {contact.deal_value !== null && (
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="text-fg-primary text-sm font-semibold">
+                  {formatDealValue(contact.deal_value, contact.deal_currency)}
+                </span>
+                {contact.deal_probability !== null && (
+                  <span className="text-fg-muted text-xs">· {contact.deal_probability}% likely</span>
+                )}
+                {contact.expected_close_date && (
+                  <span className="text-fg-muted text-xs">
+                    · Close {contact.expected_close_date.slice(0, 10)}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -457,9 +483,23 @@ export function ContactDetailScreen({ id }: Props) {
 
       {activeTab === "notes" && (
         <div className="pb-8">
+          {/* AI-synthesized outreach narrative — sits above the raw log */}
+          {outreachSection && (
+            <SectionRenderer
+              section={outreachSection}
+              defaultExpanded={true}
+              className="mx-4 mb-3"
+            />
+          )}
+          {/* Raw append-only interaction log */}
           <div className="mx-4 mb-4">
-            <InteractionTimeline interactions={contact.interactions ?? []} />
+            {(contact.interactions ?? []).length === 0 && !outreachSection ? (
+              <p className="text-center text-fg-muted text-sm py-6">No notes yet.</p>
+            ) : (
+              <InteractionTimeline interactions={contact.interactions ?? []} />
+            )}
           </div>
+          {/* Web research findings */}
           {researchSection && (
             <SectionRenderer
               section={researchSection}

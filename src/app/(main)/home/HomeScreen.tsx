@@ -1,10 +1,13 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Loader2, CheckCircle2, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, Clock, UserPlus, Mic } from "lucide-react";
 import { StatusBar, Avatar, Chip, ChatInputBar } from "@/components/ui";
 import { useUIStore } from "@/stores/ui";
 import { useSuggestions, type DailySuggestion } from "@/lib/hooks/useSuggestions";
+import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import type { Contact } from "@/types/contact";
 
 // ── Follow-up card ─────────────────────────────────────────────────────────────
 
@@ -85,6 +88,23 @@ export function HomeScreen() {
   const { openCapture } = useUIStore();
   const { suggestions, loading, markDone, markLater } = useSuggestions();
 
+  // Detect whether the user has any contacts at all (to distinguish new vs. returning users).
+  // Only fires after suggestions load and come back empty, so it's zero cost for active users.
+  const [hasContacts, setHasContacts] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    if (suggestions.length > 0) { setHasContacts(true); return; }
+    if (!isSupabaseConfigured()) { setHasContacts(true); return; } // Phase 1 mock always has contacts
+    let cancelled = false;
+    fetch("/api/contacts?limit=1")
+      .then((r) => r.json())
+      .then((d: { contacts?: Contact[] }) => {
+        if (!cancelled) setHasContacts((d.contacts?.length ?? 0) > 0);
+      })
+      .catch(() => { if (!cancelled) setHasContacts(null); });
+    return () => { cancelled = true; };
+  }, [loading, suggestions.length]);
+
   return (
     <div className="flex flex-col h-full">
       <StatusBar />
@@ -121,7 +141,28 @@ export function HomeScreen() {
               />
             ))}
           </div>
+        ) : hasContacts === false ? (
+          /* ── Onboarding: brand-new user, no contacts yet ── */
+          <div className="px-5 pb-4">
+            <div className="bg-surface-primary rounded-2xl border border-border p-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
+                <UserPlus className="w-5 h-5 text-accent" />
+              </div>
+              <p className="text-fg-primary font-semibold text-base">Welcome to Kova</p>
+              <p className="text-fg-muted text-sm mt-1 leading-relaxed">
+                Add your first contact by speaking, typing, or scanning a business card.
+              </p>
+              <button
+                onClick={() => openCapture()}
+                className="mt-4 h-10 px-5 rounded-xl bg-accent text-white text-sm font-semibold flex items-center gap-2 mx-auto"
+              >
+                <Mic className="w-4 h-4" />
+                Add first contact
+              </button>
+            </div>
+          </div>
         ) : (
+          /* ── All caught up: returning user, nothing due ── */
           <div className="px-5 pb-4">
             <div className="bg-accent-green-light rounded-2xl border border-accent-green/20 p-4 text-center">
               <CheckCircle2 className="w-6 h-6 text-accent-green mx-auto mb-1" />
