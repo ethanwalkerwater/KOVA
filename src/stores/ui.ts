@@ -44,6 +44,11 @@ interface UIState {
   /** Contact IDs currently being regenerated — used to show spinners. */
   regeneratingContactIds: Set<string>;
   setRegenerating: (contactId: string, regenerating: boolean) => void;
+
+  // ── Follow-up badge ────────────────────────────────────────────────────────
+  /** Number of pending follow-ups today — drives the Home tab badge. */
+  pendingSuggestionCount: number;
+  setPendingSuggestionCount: (count: number) => void;
 }
 
 let toastCounter = 0;
@@ -90,4 +95,7 @@ export const useUIStore = create<UIState>((set) => ({
       else next.delete(contactId);
       return { regeneratingContactIds: next };
     }),
+
+  pendingSuggestionCount: 0,
+  setPendingSuggestionCount: (count) => set({ pendingSuggestionCount: count }),
 }));

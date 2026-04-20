@@ -85,8 +85,13 @@ export function HomeScreen() {
   const hour = today.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
-  const { openCapture } = useUIStore();
+  const { openCapture, setPendingSuggestionCount } = useUIStore();
   const { suggestions, loading, markDone, markLater } = useSuggestions();
+
+  // Keep the global badge count in sync
+  useEffect(() => {
+    if (!loading) setPendingSuggestionCount(suggestions.length);
+  }, [loading, suggestions.length, setPendingSuggestionCount]);
 
   // Detect whether the user has any contacts at all (to distinguish new vs. returning users).
   // Only fires after suggestions load and come back empty, so it's zero cost for active users.

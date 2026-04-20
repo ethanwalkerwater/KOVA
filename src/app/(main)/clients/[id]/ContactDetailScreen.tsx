@@ -414,6 +414,24 @@ export function ContactDetailScreen({ id }: Props) {
           </div>
         )}
 
+        {/* Follow-up reminder */}
+        {contact.next_followup_at && (
+          <div className={cn(
+            "flex items-center gap-1.5 mt-3 rounded-xl px-3 py-2 border text-xs font-medium",
+            new Date(contact.next_followup_at) < new Date()
+              ? "bg-red-50 text-red-600 border-red-200"
+              : "bg-accent-light text-accent border-accent/20",
+          )}>
+            <span>
+              {new Date(contact.next_followup_at) < new Date() ? "⚠ Overdue: " : "Follow-up: "}
+            </span>
+            <span>{new Date(contact.next_followup_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+            {contact.followup_reason && (
+              <span className="truncate opacity-80">· {contact.followup_reason}</span>
+            )}
+          </div>
+        )}
+
         {/* Tags */}
         {contact.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-3">
