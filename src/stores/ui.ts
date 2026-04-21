@@ -33,6 +33,19 @@ export interface ToastOptions {
 }
 
 export type CaptureMode = "text" | "scan";
+export type ClientsViewMode = "list" | "table";
+
+const VIEW_MODE_KEY = "kova:clientsViewMode";
+
+function loadInitialViewMode(): ClientsViewMode {
+  if (typeof window === "undefined") return "list";
+  try {
+    const saved = window.localStorage.getItem(VIEW_MODE_KEY);
+    return saved === "table" ? "table" : "list";
+  } catch {
+    return "list";
+  }
+}
 
 interface UIState {
   // ── Capture modal ──────────────────────────────────────────────────────────
@@ -51,6 +64,12 @@ interface UIState {
   // ── Search ─────────────────────────────────────────────────────────────────
   contactSearchQuery: string;
   setContactSearchQuery: (query: string) => void;
+
+  // ── Clients view mode ──────────────────────────────────────────────────────
+  /** Sticky list vs table view on the Clients page. Persisted to localStorage
+   *  so desktop users don't get reset to list every time they re-render. */
+  clientsViewMode: ClientsViewMode;
+  setClientsViewMode: (mode: ClientsViewMode) => void;
 
   // ── Toasts ─────────────────────────────────────────────────────────────────
   toasts: Toast[];
@@ -93,6 +112,19 @@ export const useUIStore = create<UIState>((set) => ({
 
   contactSearchQuery: "",
   setContactSearchQuery: (query) => set({ contactSearchQuery: query }),
+
+  clientsViewMode: loadInitialViewMode(),
+  setClientsViewMode: (mode) => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(VIEW_MODE_KEY, mode);
+      } catch {
+        // ignore quota / privacy-mode failures — the in-memory value still
+        // keeps the tab correct for the current session
+      }
+    }
+    set({ clientsViewMode: mode });
+  },
 
   toasts: [],
   addToast: (message, variant = "info", options) =>

@@ -125,9 +125,9 @@ function getGroupLetter(name: string): string {
 export function ClientsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  const [viewMode, setViewMode] = useState<"list" | "table">("list");
   const [activeLetter, setActiveLetter] = useState<string | undefined>();
-  const { openCapture } = useUIStore();
+  const { openCapture, clientsViewMode: viewMode, setClientsViewMode: setViewMode } =
+    useUIStore();
 
   // Scroll container ref for the contact list
   const scrollRef = useRef<HTMLDivElement>(null);
