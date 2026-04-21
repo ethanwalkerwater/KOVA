@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronDown, ChevronUp, Pencil, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, RotateCcw, Plus } from "lucide-react";
 import type { Section } from "@/types/section";
 import { getSectionIcon, getSectionColor } from "@/lib/markdown/sections";
 import { cn } from "@/lib/utils/cn";
@@ -17,6 +17,13 @@ interface SectionRendererProps {
   onEdit?: (section: Section) => void;
   /** Called when user clicks "Restore AI" to clear the override */
   onRestoreAI?: (section: Section) => void;
+  /** Signal that AI is actively rebuilding this section. If true AND the
+   *  section is currently empty, show a "writing…" skeleton instead of the
+   *  empty-state CTA. */
+  loading?: boolean;
+  /** Called when the user taps the empty-state CTA. If omitted the CTA
+   *  falls back to showing static copy. */
+  onAddNote?: () => void;
 }
 
 export function SectionRenderer({
@@ -25,6 +32,8 @@ export function SectionRenderer({
   className,
   onEdit,
   onRestoreAI,
+  loading = false,
+  onAddNote,
 }: SectionRendererProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -163,7 +172,10 @@ export function SectionRenderer({
           {/* Divider */}
           <div className="border-t border-border-light mt-3 mb-3" />
 
-          {/* Markdown content or empty state */}
+          {/* Three distinct states:
+              1. Loading — AI is actively rebuilding this empty section
+              2. Empty — section has no interactions to draw from yet
+              3. Populated — markdown content */}
           {displayContent.trim() ? (
             <div
               className={cn(
@@ -181,10 +193,29 @@ export function SectionRenderer({
             >
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
             </div>
+          ) : loading ? (
+            <div className="animate-pulse flex flex-col gap-2" aria-label="AI is writing">
+              <div className="h-3 rounded bg-surface-secondary w-11/12" />
+              <div className="h-3 rounded bg-surface-secondary w-9/12" />
+              <div className="h-3 rounded bg-surface-secondary w-7/12" />
+              <p className="text-fg-muted text-xs italic mt-1">AI is writing…</p>
+            </div>
           ) : (
-            <p className="text-fg-muted text-sm italic">
-              No content yet. Add an interaction to populate this section.
-            </p>
+            <div className="flex flex-col items-start gap-2">
+              <p className="text-fg-muted text-sm">
+                Nothing here yet — add a note and AI will populate this section.
+              </p>
+              {onAddNote && (
+                <button
+                  type="button"
+                  onClick={onAddNote}
+                  className="inline-flex items-center gap-1 rounded-lg bg-accent-light px-2.5 py-1.5 text-xs font-medium text-accent hover:opacity-80 transition-opacity"
+                >
+                  <Plus size={12} />
+                  Add a note
+                </button>
+              )}
+            </div>
           )}
         </>
       )}

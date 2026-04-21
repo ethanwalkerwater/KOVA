@@ -656,6 +656,8 @@ export function ContactDetailScreen({ id }: Props) {
                 className="mx-4 mb-3"
                 onEdit={handleEditSection}
                 onRestoreAI={handleRestoreSection}
+                loading={regenerating}
+                onAddNote={() => openCapture(id)}
               />
             ))
           )}
@@ -672,6 +674,8 @@ export function ContactDetailScreen({ id }: Props) {
               className="mx-4 mb-3"
               onEdit={handleEditSection}
               onRestoreAI={handleRestoreSection}
+              loading={regenerating}
+              onAddNote={() => openCapture(id)}
             />
           )}
           {/* Raw append-only interaction log */}
@@ -690,6 +694,8 @@ export function ContactDetailScreen({ id }: Props) {
               className="mx-4 mb-3"
               onEdit={handleEditSection}
               onRestoreAI={handleRestoreSection}
+              loading={regenerating}
+              onAddNote={() => openCapture(id)}
             />
           )}
         </div>

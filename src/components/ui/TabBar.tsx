@@ -35,8 +35,11 @@ export function TabBar() {
               <div className="relative">
                 <Icon className="w-5 h-5" />
                 {showBadge && (
-                  <span className="absolute -top-1 -right-1.5 min-w-[14px] h-3.5 rounded-full bg-accent text-white text-[9px] font-bold flex items-center justify-center px-0.5">
-                    {pendingCount > 9 ? "9+" : pendingCount}
+                  <span
+                    className="absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full bg-accent text-white text-[9px] font-bold flex items-center justify-center px-1 tabular-nums"
+                    aria-label={`${pendingCount} pending`}
+                  >
+                    {pendingCount > 99 ? "99+" : pendingCount}
                   </span>
                 )}
               </div>
