@@ -184,16 +184,15 @@ export const useContactsStore = create<ContactsState>((set) => ({
 
   appendContacts: (newContacts) =>
     set((state) => {
+      // Paginated list responses always return empty sections/interactions, so
+      // we don't need to preserve existing relations on append — the dedup
+      // guard below is sufficient (contacts already in the map keep whatever
+      // they had, we just skip adding them again).
       const map = { ...state.contacts };
       const newIds: string[] = [];
       for (const c of newContacts) {
-        if (c.id in map) continue; // skip duplicates (shouldn't happen with offset, but safe)
-        const existing = map[c.id];
-        map[c.id] = {
-          ...c,
-          sections: existing?.sections?.length ? existing.sections : c.sections,
-          interactions: existing?.interactions?.length ? existing.interactions : c.interactions,
-        };
+        if (c.id in map) continue; // dedup against contacts already loaded
+        map[c.id] = c;
         newIds.push(c.id);
       }
       return {
