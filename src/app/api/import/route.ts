@@ -30,6 +30,21 @@ import type { PipelineStage, Importance } from "@/types/contact";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_ROWS = 500;
 
+// TODO(rate-limit): replace in-memory Map in @/lib/rate-limiter with a Supabase
+// table so the cap holds across serverless instances. Proposed schema:
+//   rate_limits(
+//     user_id uuid references auth.users(id),
+//     endpoint text,
+//     bucket timestamptz,
+//     count int default 1,
+//     unique(user_id, endpoint, bucket)
+//   )
+// Until then, the in-memory limiter resets per cold start. Cap is raised from
+// 5/hr → 20/hr to reduce false-positive blocks on legit users while still
+// deterring casual abuse at single-instance granularity.
+const IMPORT_RATE_MAX = 20;
+const IMPORT_RATE_WINDOW_MS = 60 * 60_000;
+
 // ── Minimal RFC 4180 CSV parser ───────────────────────────────────────────────
 
 function parseCsv(text: string): Record<string, string>[] {
@@ -150,7 +165,10 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rl = checkRateLimit("import", user.id, { maxRequests: 5, windowMs: 60 * 60_000 });
+  const rl = checkRateLimit("import", user.id, {
+    maxRequests: IMPORT_RATE_MAX,
+    windowMs: IMPORT_RATE_WINDOW_MS,
+  });
   if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   // Parse multipart form data
@@ -172,7 +190,10 @@ export async function POST(request: NextRequest) {
 
   let csvText: string;
   try {
-    csvText = await file.text();
+    // Strip UTF-8 BOM (\uFEFF) that Excel / Numbers / Google Sheets prepend
+    // when exporting CSV. Without this, the first header cell reads as
+    // "\uFEFFname" and no rows match the column map.
+    csvText = (await file.text()).replace(/^\uFEFF/, "");
   } catch {
     return NextResponse.json({ error: "Failed to read file" }, { status: 400 });
   }
@@ -284,10 +305,14 @@ export async function POST(request: NextRequest) {
       });
 
       if (interactionError) {
-        // Contact created but interaction failed — still count as imported, warn
+        // Roll back the contact so the append-only invariant holds — no contact
+        // should exist without at least one backing interaction. Regeneration
+        // on an interaction-less contact would produce empty sections.
+        await supabase.from("contacts").delete().eq("id", contact.id);
         errors.push(
-          `Row ${rowNum} (${name}): contact created but interaction failed — ${interactionError.message}`,
+          `Row ${rowNum} (${name}): import failed — ${interactionError.message}`,
         );
+        continue; // don't count as imported, don't stamp last_interaction_at
       }
 
       // Stamp last_interaction_at
