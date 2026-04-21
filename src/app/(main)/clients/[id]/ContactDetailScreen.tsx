@@ -100,7 +100,7 @@ export function ContactDetailScreen({ id }: Props) {
   const { addToast } = useUIStore();
   const { upsertSection } = useContactsStore();
 
-  const { contact, loading, error } = useContact(id);
+  const { contact, loading, error, errorKind, refetch } = useContact(id);
   const { regenerating, trigger: regenerate } = useRegenerate(id);
 
   async function handleEnrich() {
@@ -231,12 +231,48 @@ export function ContactDetailScreen({ id }: Props) {
   }
 
   if (error || !contact) {
+    // Render differentiated empty-states so the user knows whether the contact
+    // is actually missing (hard stop), the server is misbehaving (retryable),
+    // or they're simply offline (reconnect).
+    const kind = errorKind ?? (contact ? null : "not_found");
+    const copy =
+      kind === "offline"
+        ? {
+            title: "You're offline",
+            body: "Reconnect to load this contact. Any notes you add offline will sync when you're back online.",
+            showRetry: false,
+          }
+        : kind === "server_error"
+          ? {
+              title: "Something went wrong",
+              body: error ?? "The server didn't respond as expected. Give it another try.",
+              showRetry: true,
+            }
+          : {
+              title: "Contact not found",
+              body: error ?? "This contact may have been deleted or the link is wrong.",
+              showRetry: false,
+            };
+
     return (
       <div className="flex flex-col h-full bg-surface-primary">
         <StatusBar />
+        <div className="flex items-center px-3 py-2">
+          <Link href="/clients" className="w-9 h-9 flex items-center justify-center rounded-full">
+            <ChevronLeft className="w-5 h-5 text-fg-primary" />
+          </Link>
+        </div>
         <div className="flex flex-col items-center justify-center flex-1 gap-3 px-8">
-          <p className="text-fg-primary font-semibold">Contact not found</p>
-          {error && <p className="text-fg-muted text-sm text-center">{error}</p>}
+          <p className="text-fg-primary font-semibold">{copy.title}</p>
+          <p className="text-fg-muted text-sm text-center max-w-xs">{copy.body}</p>
+          {copy.showRetry && (
+            <button
+              onClick={() => void refetch()}
+              className="h-10 px-5 rounded-xl bg-accent text-fg-inverse text-sm font-semibold active:scale-[0.98]"
+            >
+              Retry
+            </button>
+          )}
           <Link href="/clients" className="text-accent text-sm">
             ← Back to Clients
           </Link>
