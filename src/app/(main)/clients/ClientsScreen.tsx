@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Loader2, LayoutList, Table2, ChevronDown } from "lucide-react";
+import { Plus, Loader2, LayoutList, Table2, ChevronDown, Users, Upload } from "lucide-react";
 import { StatusBar, SearchBar, Avatar, Chip, FAB, AlphaIndexSidebar } from "@/components/ui";
 import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { useContacts } from "@/lib/hooks/useContacts";
@@ -126,11 +126,14 @@ export function ClientsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [activeLetter, setActiveLetter] = useState<string | undefined>();
-  const { openCapture, clientsViewMode: viewMode, setClientsViewMode: setViewMode } =
+  const { openCapture, clientsViewMode: viewMode, setClientsViewMode: setViewMode, addToast } =
     useUIStore();
 
   // Scroll container ref for the contact list
   const scrollRef = useRef<HTMLDivElement>(null);
+  // CSV import (empty-state CTA)
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
   // Map of letter → section header element for scrolling
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -198,6 +201,36 @@ export function ClientsScreen() {
     [grouped],
   );
 
+  // CSV import handler (mirrors MeScreen pattern so the empty-state CTA works identically)
+  const handleImport = useCallback(async (file: File) => {
+    if (!isSupabaseConfigured()) {
+      addToast("Connect Supabase to import contacts.", "error");
+      return;
+    }
+    setImporting(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/import", { method: "POST", body: form });
+      const data = await res.json() as { imported?: number; skipped?: number; error?: string };
+      if (!res.ok) {
+        addToast(data.error ?? "Import failed", "error");
+        return;
+      }
+      const importedCount = data.imported ?? 0;
+      const skippedCount = data.skipped ?? 0;
+      addToast(
+        `Imported ${importedCount} contact${importedCount !== 1 ? "s" : ""}${skippedCount > 0 ? ` (${skippedCount} skipped)` : ""}`,
+        "success",
+      );
+    } catch {
+      addToast("Import failed — check your CSV and try again.", "error");
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  }, [addToast]);
+
   // Scroll to a letter section
   const handleLetterPress = useCallback((letter: string) => {
     setActiveLetter(letter);
@@ -232,11 +265,45 @@ export function ClientsScreen() {
     }
     if (sortedFiltered.length === 0) {
       return (
-        <div className="text-center py-16 px-8">
-          <p className="text-fg-primary font-semibold text-base">No contacts yet</p>
-          <p className="text-fg-muted text-sm mt-1">
-            Tap the + button to add your first contact.
+        <div className="flex flex-col items-center text-center py-16 px-8">
+          <div className="w-16 h-16 rounded-full bg-surface-secondary flex items-center justify-center mb-4">
+            <Users className="w-8 h-8 text-fg-muted" />
+          </div>
+          <p className="text-fg-primary font-semibold text-base">Your contacts live here</p>
+          <p className="text-fg-muted text-sm mt-1 max-w-xs">
+            Capture your first contact on the Home tab — speak, type, or snap a photo.
           </p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 mt-5">
+            <Link
+              href="/home"
+              className="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-fg-primary text-fg-inverse text-sm font-semibold"
+            >
+              Go to Home →
+            </Link>
+            <button
+              type="button"
+              onClick={() => importInputRef.current?.click()}
+              disabled={importing}
+              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl bg-surface-secondary text-fg-secondary text-sm font-medium border border-border hover:bg-border disabled:opacity-60"
+            >
+              {importing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              {importing ? "Importing…" : "Import from CSV"}
+            </button>
+          </div>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleImport(f);
+            }}
+          />
         </div>
       );
     }
