@@ -42,6 +42,10 @@ interface FormState {
   sourceContext: string;
   submitStatus: "idle" | "submitting" | "success" | "error";
   submitMessage?: string;
+  /** Name to show in the success panel ("Saved to Lisa"). */
+  savedToName?: string;
+  /** Whether the backend will run Tier 1/2 AI after save — affects success copy. */
+  savedIsUpdating?: boolean;
   // Scan-mode state
   scanImageFile: File | null;
   scanPreviewUrl: string | null;
@@ -56,7 +60,12 @@ type FormAction =
   | { type: "set_text"; value: string }
   | { type: "set_context"; value: string }
   | { type: "set_submitting" }
-  | { type: "set_success"; message: string }
+  | {
+      type: "set_success";
+      message: string;
+      savedToName?: string;
+      savedIsUpdating?: boolean;
+    }
   | { type: "set_error"; message: string }
   | { type: "set_scan_image"; file: File; previewUrl: string }
   | { type: "set_scan_processing" }
@@ -93,7 +102,13 @@ function formReducer(state: FormState, action: FormAction): FormState {
     case "set_submitting":
       return { ...state, submitStatus: "submitting" };
     case "set_success":
-      return { ...state, submitStatus: "success", submitMessage: action.message };
+      return {
+        ...state,
+        submitStatus: "success",
+        submitMessage: action.message,
+        savedToName: action.savedToName,
+        savedIsUpdating: action.savedIsUpdating ?? false,
+      };
     case "set_error":
       return { ...state, submitStatus: "error", submitMessage: action.message };
     case "set_scan_image":
@@ -367,9 +382,14 @@ export function CaptureSheet() {
             pending: true,
           });
 
-          dispatch({ type: "set_success", message: "Saved offline" });
+          dispatch({
+            type: "set_success",
+            message: "Saved offline",
+            savedToName: stubContact.name,
+            savedIsUpdating: false,
+          });
           addToast("Contact saved offline — will sync when connected", "info");
-          setTimeout(() => closeCapture(), 800);
+          setTimeout(() => closeCapture(), 1200);
           return;
         }
 
@@ -395,7 +415,12 @@ export function CaptureSheet() {
         const freshContact = { ...data.contact, ...(data.contact_update ?? {}) };
         upsertContact({ ...freshContact, sections: [], interactions: [data.interaction] });
 
-        dispatch({ type: "set_success", message: "Contact added" });
+        dispatch({
+          type: "set_success",
+          message: "Contact added",
+          savedToName: freshContact.name,
+          savedIsUpdating: true,
+        });
         addToast("Contact created", "success");
       } else {
         const syncPayload = {
@@ -428,9 +453,14 @@ export function CaptureSheet() {
           await queuePendingSync(localId, syncPayload);
 
           if (captureContactId) appendInteraction(captureContactId, pendingInteraction);
-          dispatch({ type: "set_success", message: "Saved offline" });
+          dispatch({
+            type: "set_success",
+            message: "Saved offline",
+            savedToName: targetContact?.name,
+            savedIsUpdating: false,
+          });
           addToast("Saved offline — will sync when connected", "info");
-          setTimeout(() => closeCapture(), 800);
+          setTimeout(() => closeCapture(), 1200);
           return;
         }
 
@@ -463,12 +493,19 @@ export function CaptureSheet() {
           }
         }
 
-        dispatch({ type: "set_success", message: "Note saved" });
+        dispatch({
+          type: "set_success",
+          message: "Note saved",
+          savedToName: targetContact?.name,
+          savedIsUpdating: true,
+        });
         addToast("Note saved", "success");
       }
 
-      // Close after brief success feedback
-      setTimeout(() => closeCapture(), 800);
+      // Hold the success panel for 1.2s so the user sees *where* it saved
+      // and that AI is rebuilding. Tapping "Close now" in the footer skips
+      // the wait; dismissing from outside would also close.
+      setTimeout(() => closeCapture(), 1200);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       dispatch({ type: "set_error", message: msg });
@@ -551,8 +588,31 @@ export function CaptureSheet() {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 pb-5 flex flex-col gap-4 min-h-0">
+          {/* Success panel — replaces the form for 1.2s after save so the user
+              sees WHERE it saved and that the profile is rebuilding, instead
+              of the sheet vanishing instantly. */}
+          {isSuccess && (
+            <div className="flex flex-col items-center gap-3 py-6 text-center animate-in fade-in duration-200">
+              <div className="w-14 h-14 rounded-full bg-accent-green/15 flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8 text-accent-green" aria-hidden="true" />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <p className="text-fg-primary font-semibold text-base">
+                  {form.savedToName
+                    ? `Saved to ${form.savedToName}`
+                    : form.submitMessage ?? "Saved"}
+                </p>
+                <p className="text-fg-muted text-sm">
+                  {form.savedIsUpdating
+                    ? "AI is updating their profile…"
+                    : "Will sync when you're back online."}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Contact name (new contact only) */}
-          {isNewContact && (
+          {!isSuccess && isNewContact && (
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="capture-name"
@@ -579,6 +639,7 @@ export function CaptureSheet() {
 
           {/* Mode tabs — locked during active voice recording so switching mid-stream
               can't silently drop transcription + leak the mic stream. */}
+          {!isSuccess && (
           <div className="flex flex-col gap-1.5">
             <div className="flex gap-2">
               <button
@@ -630,9 +691,10 @@ export function CaptureSheet() {
               </p>
             )}
           </div>
+          )}
 
           {/* ── Text mode ─────────────────────────────────────────────────── */}
-          {form.mode === "text" && (
+          {!isSuccess && form.mode === "text" && (
             <textarea
               ref={textareaRef}
               value={form.textInput}
@@ -650,7 +712,7 @@ export function CaptureSheet() {
           )}
 
           {/* ── Voice mode ────────────────────────────────────────────────── */}
-          {form.mode === "voice" && (
+          {!isSuccess && form.mode === "voice" && (
             <div className="flex flex-col items-center gap-4">
               {/* Transcript preview */}
               {(form.textInput || isTranscribing) && (
@@ -702,7 +764,7 @@ export function CaptureSheet() {
           )}
 
           {/* ── Scan mode ─────────────────────────────────────────────────── */}
-          {form.mode === "scan" && (
+          {!isSuccess && form.mode === "scan" && (
             <div className="flex flex-col gap-3">
               {!form.scanImageFile ? (
                 /* Image picker — two buttons: camera and gallery */
@@ -803,6 +865,7 @@ export function CaptureSheet() {
           )}
 
           {/* Source context */}
+          {!isSuccess && (
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor="capture-context"
@@ -821,6 +884,7 @@ export function CaptureSheet() {
                          placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
             />
           </div>
+          )}
 
           {/* Submit error */}
           {form.submitStatus === "error" && (
@@ -833,32 +897,37 @@ export function CaptureSheet() {
 
         {/* Footer */}
         <div className="shrink-0 px-5 pb-[calc(21px+env(safe-area-inset-bottom,0px))] pt-3 border-t border-border-light">
-          <button
-            onClick={() => void handleSubmit()}
-            disabled={!canSubmit}
-            className={cn(
-              "w-full h-12 rounded-2xl font-semibold text-sm transition-all flex items-center justify-center gap-2",
-              canSubmit
-                ? "bg-accent text-fg-inverse active:scale-[0.98]"
-                : "bg-surface-secondary text-fg-muted cursor-not-allowed",
-            )}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Saving...
-              </>
-            ) : isSuccess ? (
-              <>
-                <CheckCircle2 className="w-4 h-4" /> {form.submitMessage}
-              </>
-            ) : form.mode === "scan" && form.scanImageFile ? (
-              isNewContact ? "Add Contact from Card" : "Save Card Scan"
-            ) : isNewContact ? (
-              "Add Contact"
-            ) : (
-              "Save Note"
-            )}
-          </button>
+          {isSuccess ? (
+            <button
+              onClick={closeCapture}
+              className="w-full h-12 rounded-2xl font-semibold text-sm transition-all flex items-center justify-center gap-2 bg-surface-secondary text-fg-secondary border border-border active:scale-[0.98]"
+            >
+              Close now
+            </button>
+          ) : (
+            <button
+              onClick={() => void handleSubmit()}
+              disabled={!canSubmit}
+              className={cn(
+                "w-full h-12 rounded-2xl font-semibold text-sm transition-all flex items-center justify-center gap-2",
+                canSubmit
+                  ? "bg-accent text-fg-inverse active:scale-[0.98]"
+                  : "bg-surface-secondary text-fg-muted cursor-not-allowed",
+              )}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                </>
+              ) : form.mode === "scan" && form.scanImageFile ? (
+                isNewContact ? "Add Contact from Card" : "Save Card Scan"
+              ) : isNewContact ? (
+                "Add Contact"
+              ) : (
+                "Save Note"
+              )}
+            </button>
+          )}
         </div>
       </div>
     </>
