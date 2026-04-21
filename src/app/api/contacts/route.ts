@@ -4,7 +4,7 @@
  * Returns the current user's contacts with optional filtering/sorting.
  *
  * Query params:
- * - q: full-text search query (ilike across name/company/title/ai_summary)
+ * - q: full-text search across name/company/title/ai_summary AND section content_md
  * - stage: filter by pipeline stage
  * - importance: filter by importance
  * - sort: 'last_interaction_at' | 'relationship_score' | 'name' | 'created_at' (default: last_interaction_at)
@@ -55,36 +55,68 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 200);
   const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
+  const validSorts = ["last_interaction_at", "relationship_score", "name", "created_at"];
+  const safeSort = validSorts.includes(sort) ? sort : "last_interaction_at";
+
+  // When a search query is present, gather extra contact IDs from section content
+  // so searches like "cloud migration" or "budget approved" surface the right contacts.
+  let sectionMatchIds: string[] = [];
+  if (q.trim()) {
+    const safe = q.trim().replace(/[%_]/g, "\\$&");
+    const { data: sectionMatches } = await supabase
+      .from("sections")
+      .select("contact_id")
+      .or(`content_md.ilike.%${safe}%,summary.ilike.%${safe}%`)
+      // Only sections owned by this user (via the contact foreign key)
+      .in(
+        "contact_id",
+        supabase
+          .from("contacts")
+          .select("id")
+          .eq("owner_id", user.id) as unknown as string[],
+      );
+    sectionMatchIds = [...new Set((sectionMatches ?? []).map((r) => r.contact_id as string))];
+  }
+
   let query = supabase.from("contacts").select("*").eq("owner_id", user.id);
 
-  // Full-text search — ilike across key columns.
+  // Full-text search — ilike across contact fields + section content.
   // NOTE: textSearch() requires a stored tsvector column; the contacts_search_idx
   // is a GIN index on a computed expression, not a column — so textSearch() breaks
   // at runtime. ilike is correct at MVP scale; add a generated search_vector column
   // and switch to an RPC with websearch_to_tsquery for large datasets.
   if (q.trim()) {
     const safe = q.trim().replace(/[%_]/g, "\\$&"); // escape ilike wildcards
-    query = query.or(
-      `name.ilike.%${safe}%,company.ilike.%${safe}%,title.ilike.%${safe}%,ai_summary.ilike.%${safe}%`,
-    );
+
+    const orClauses = [
+      `name.ilike.%${safe}%`,
+      `company.ilike.%${safe}%`,
+      `title.ilike.%${safe}%`,
+      `ai_summary.ilike.%${safe}%`,
+    ];
+
+    if (sectionMatchIds.length > 0) {
+      // PostgREST .or() syntax for `id IN (...)`: id.in.(uuid1,uuid2,...)
+      orClauses.push(`id.in.(${sectionMatchIds.join(",")})`);
+    }
+
+    query = query.or(orClauses.join(","));
   }
 
   if (stage) query = query.eq("stage", stage);
   if (importance) query = query.eq("importance", importance);
 
-  const validSorts = ["last_interaction_at", "relationship_score", "name", "created_at"];
-  const safeSort = validSorts.includes(sort) ? sort : "last_interaction_at";
   query = query.order(safeSort, { ascending: safeSort === "name", nullsFirst: false });
   query = query.range(offset, offset + limit - 1);
 
-  const { data, error, count } = await query;
+  const { data, error } = await query;
 
   if (error) {
     console.error("[contacts GET]", error);
     return NextResponse.json({ error: "Failed to fetch contacts" }, { status: 500 });
   }
 
-  return NextResponse.json({ contacts: data ?? [], total: count ?? 0 });
+  return NextResponse.json({ contacts: data ?? [], total: data?.length ?? 0 });
 }
 
 export async function POST(request: NextRequest) {

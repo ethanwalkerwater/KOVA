@@ -78,6 +78,16 @@ export const useContactsStore = create<ContactsState>((set) => ({
     set((state) => {
       const map: Record<string, ContactWithRelations> = {};
       const ids: string[] = [];
+
+      // Preserve any offline-pending contacts (local_ IDs) — they don't exist
+      // on the server yet, so they won't appear in any API response.
+      for (const [id, c] of Object.entries(state.contacts)) {
+        if (c.pending) {
+          map[id] = c;
+          ids.push(id);
+        }
+      }
+
       for (const c of contacts) {
         const existing = state.contacts[c.id];
         // The list API returns empty sections/interactions arrays.

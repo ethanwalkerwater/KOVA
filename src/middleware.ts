@@ -15,8 +15,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 // Routes that don't require authentication
-const PUBLIC_ROUTES = ["/login", "/auth/callback"];
-// Routes that authenticated users should not see
+const PUBLIC_ROUTES = ["/login", "/auth/callback", "/reset-password"];
+// Routes that authenticated users should not see (redirect → /home)
 const AUTH_ONLY_ROUTES = ["/login"];
 
 export async function middleware(request: NextRequest) {

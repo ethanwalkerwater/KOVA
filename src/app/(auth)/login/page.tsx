@@ -4,7 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 
-type Mode = "sign_in" | "sign_up";
+type Mode = "sign_in" | "sign_up" | "forgot_password";
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   auth_callback_failed: "Email confirmation failed. Please try signing in again.",
@@ -83,6 +83,12 @@ function LoginContent() {
         });
         if (error) throw error;
         setSuccess("Check your email for the confirmation link.");
+      } else if (mode === "forgot_password") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${location.origin}/auth/callback?next=/reset-password`,
+        });
+        if (error) throw error;
+        setSuccess("Password reset email sent. Check your inbox.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -105,7 +111,11 @@ function LoginContent() {
         </div>
         <h1 className="text-fg-primary font-semibold text-2xl tracking-tight">Kova</h1>
         <p className="text-fg-secondary text-sm text-center">
-          {mode === "sign_in" ? "Sign in to your account" : "Create your account"}
+          {mode === "sign_in"
+            ? "Sign in to your account"
+            : mode === "sign_up"
+            ? "Create your account"
+            : "Reset your password"}
         </p>
       </div>
 
@@ -129,23 +139,36 @@ function LoginContent() {
             />
           </div>
 
-          {/* Password */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-fg-primary text-sm font-medium">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              autoComplete={mode === "sign_up" ? "new-password" : "current-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              minLength={8}
-              className="h-11 rounded-xl border border-border bg-surface-secondary px-3 text-fg-primary text-sm placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-            />
-          </div>
+          {/* Password — hidden in forgot_password mode */}
+          {mode !== "forgot_password" && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="text-fg-primary text-sm font-medium">
+                  Password
+                </label>
+                {mode === "sign_in" && (
+                  <button
+                    type="button"
+                    onClick={() => { setMode("forgot_password"); setError(null); setSuccess(null); }}
+                    className="text-accent text-xs hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <input
+                id="password"
+                type="password"
+                required
+                autoComplete={mode === "sign_up" ? "new-password" : "current-password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                minLength={8}
+                className="h-11 rounded-xl border border-border bg-surface-secondary px-3 text-fg-primary text-sm placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+              />
+            </div>
+          )}
 
           {/* Error / success */}
           {error && (
@@ -168,25 +191,44 @@ function LoginContent() {
             disabled={loading}
             className="h-11 rounded-xl bg-accent text-fg-inverse font-semibold text-sm hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? "Loading…" : mode === "sign_in" ? "Sign in" : "Create account"}
+            {loading
+              ? "Loading…"
+              : mode === "sign_in"
+              ? "Sign in"
+              : mode === "sign_up"
+              ? "Create account"
+              : "Send reset email"}
           </button>
         </form>
 
         {/* Mode toggle */}
-        <p className="mt-5 text-center text-sm text-fg-secondary">
-          {mode === "sign_in" ? "Don't have an account?" : "Already have an account?"}{" "}
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === "sign_in" ? "sign_up" : "sign_in");
-              setError(null);
-              setSuccess(null);
-            }}
-            className="text-accent font-medium hover:underline"
-          >
-            {mode === "sign_in" ? "Sign up" : "Sign in"}
-          </button>
-        </p>
+        {mode === "forgot_password" ? (
+          <p className="mt-5 text-center text-sm text-fg-secondary">
+            Remember it?{" "}
+            <button
+              type="button"
+              onClick={() => { setMode("sign_in"); setError(null); setSuccess(null); }}
+              className="text-accent font-medium hover:underline"
+            >
+              Sign in
+            </button>
+          </p>
+        ) : (
+          <p className="mt-5 text-center text-sm text-fg-secondary">
+            {mode === "sign_in" ? "Don't have an account?" : "Already have an account?"}{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "sign_in" ? "sign_up" : "sign_in");
+                setError(null);
+                setSuccess(null);
+              }}
+              className="text-accent font-medium hover:underline"
+            >
+              {mode === "sign_in" ? "Sign up" : "Sign in"}
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );
