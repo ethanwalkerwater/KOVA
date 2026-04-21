@@ -22,12 +22,20 @@ import { useEffect, useReducer, useRef, useCallback } from "react";
 import { X, Mic, Type, Loader2, CheckCircle2, AlertCircle, Camera, ScanLine, ImageIcon } from "lucide-react";
 import { useUIStore } from "@/stores/ui";
 import { useContactsStore } from "@/stores/contacts";
-import { useVoiceInput } from "@/lib/hooks/useVoiceInput";
+import { useVoiceInput, MAX_RECORDING_MS, RECORDING_WARN_MS } from "@/lib/hooks/useVoiceInput";
 import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 import { cn } from "@/lib/utils/cn";
 import type { InteractionType } from "@/types/interaction";
 
 type InputMode = "voice" | "text" | "scan";
+
+/** Format recording elapsed time as `M:SS`. */
+function formatRecordingTimer(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -203,6 +211,15 @@ export function CaptureSheet() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [captureOpen, captureInitialText, captureMode]);
+
+  // When the 5-min hard cap fires, the hook sets autoStopped=true and begins
+  // transcription. We surface that to the user via a toast so it doesn't feel
+  // like the mic just went dead.
+  useEffect(() => {
+    if (voice.autoStopped) {
+      addToast("Recording stopped at 5 min max", "info");
+    }
+  }, [voice.autoStopped, addToast]);
 
   // When voice transcription completes, populate the text area.
   // We reset mode to "text" so the textarea renders, but mark capturedViaVoice
@@ -751,9 +768,28 @@ export function CaptureSheet() {
                 )}
               </button>
 
-              <p className="text-fg-muted text-xs">
-                {isRecording ? "Recording... release to stop" : "Hold to record"}
-              </p>
+              {isRecording ? (
+                <div className="flex flex-col items-center gap-0.5">
+                  <p
+                    className={cn(
+                      "font-mono text-sm tabular-nums font-medium",
+                      voice.elapsedMs >= RECORDING_WARN_MS
+                        ? "text-accent-orange"
+                        : "text-fg-primary",
+                    )}
+                    aria-live="polite"
+                  >
+                    {formatRecordingTimer(voice.elapsedMs)} / {formatRecordingTimer(MAX_RECORDING_MS)}
+                  </p>
+                  <p className="text-fg-muted text-xs">
+                    {voice.elapsedMs >= RECORDING_WARN_MS
+                      ? "Approaching 5 min cap…"
+                      : "Release to stop"}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-fg-muted text-xs">Hold to record</p>
+              )}
 
               {voice.error && (
                 <p className="text-red-600 text-xs bg-red-50 rounded-lg px-3 py-2 w-full">
