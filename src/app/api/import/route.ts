@@ -26,6 +26,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limiter";
 import type { PipelineStage, Importance } from "@/types/contact";
+import type { Database } from "@/types/database";
+
+type ContactInsert = Database["public"]["Tables"]["contacts"]["Insert"];
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_ROWS = 500;
@@ -275,15 +278,12 @@ export async function POST(request: NextRequest) {
       if (keyTopics.length) contactInsert["key_topics"] = keyTopics;
 
       // Create contact.
-      // contactInsert is built dynamically from CSV columns; owner_id + name are always
-      // present (validated above). Supabase's typed insert rejects Record<string,unknown>
-      // even when all required fields are populated — cast is safe here.
-      const contactPayload = contactInsert as Parameters<
-        ReturnType<typeof supabase.from<"contacts">>["insert"]
-      >[0];
+      // contactInsert is built dynamically from validated CSV columns; owner_id + name
+      // are always present (checked above). Cast to the generated Database Insert type so
+      // Supabase's typed client accepts the payload without requiring a full literal type.
       const { data: contact, error: contactError } = await supabase
         .from("contacts")
-        .insert(contactPayload)
+        .insert(contactInsert as ContactInsert)
         .select("id")
         .single();
 
