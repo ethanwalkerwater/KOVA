@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 interface SearchBarProps {
@@ -8,6 +8,8 @@ interface SearchBarProps {
   onChange?: (value: string) => void;
   placeholder?: string;
   className?: string;
+  /** When true, show a spinner on the right edge indicating an in-flight search. */
+  loading?: boolean;
 }
 
 export function SearchBar({
@@ -15,6 +17,7 @@ export function SearchBar({
   onChange,
   placeholder = "Search people...",
   className,
+  loading = false,
 }: SearchBarProps) {
   return (
     <div className={cn("relative flex items-center", className)}>
@@ -24,8 +27,17 @@ export function SearchBar({
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-[46px] pl-10 pr-4 bg-surface-primary border border-border rounded-xl text-sm text-fg-primary placeholder:text-fg-muted outline-none focus:border-accent transition-colors"
+        className={cn(
+          "w-full h-[46px] pl-10 bg-surface-primary border border-border rounded-xl text-sm text-fg-primary placeholder:text-fg-muted outline-none focus:border-accent transition-colors",
+          loading ? "pr-10" : "pr-4",
+        )}
       />
+      {loading && (
+        <Loader2
+          className="absolute right-3.5 w-4 h-4 text-fg-muted animate-spin pointer-events-none"
+          aria-label="Searching"
+        />
+      )}
     </div>
   );
 }

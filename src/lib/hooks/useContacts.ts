@@ -32,12 +32,19 @@ export function useContacts(options: UseContactsOptions = {}) {
 
   // Track whether we've seeded mock data already (Phase 1 only)
   const seededRef = useRef(false);
+  // Track whether we've completed at least one successful load — distinguishes
+  // the first cold fetch (show skeleton) from subsequent refetches (dim list).
+  const hasLoadedOnceRef = useRef(false);
   // Current page offset for the active query
   const [offset, setOffset] = useState(0);
   // Whether there are potentially more pages to load
   const [hasMore, setHasMore] = useState(false);
   // Loading state specifically for "load more" (separate from initial load spinner)
   const [loadingMore, setLoadingMore] = useState(false);
+  // In-flight state for search / filter / sort changes after the first load.
+  // Separate from `loading` so the UI can dim the stale list instead of
+  // flashing a skeleton on every keystroke.
+  const [searching, setSearching] = useState(false);
 
   // Reset pagination whenever query params change
   useEffect(() => {
@@ -49,6 +56,9 @@ export function useContacts(options: UseContactsOptions = {}) {
     async (pageOffset: number, append: boolean) => {
       if (append) {
         setLoadingMore(true);
+      } else if (hasLoadedOnceRef.current) {
+        // Not the first load — keep existing list visible, use searching flag
+        setSearching(true);
       } else {
         setLoading(true);
       }
@@ -65,6 +75,8 @@ export function useContacts(options: UseContactsOptions = {}) {
           setLoading(false);
         }
         setLoadingMore(false);
+        setSearching(false);
+        hasLoadedOnceRef.current = true;
         return;
       }
 
@@ -96,11 +108,13 @@ export function useContacts(options: UseContactsOptions = {}) {
 
         // If we got a full page, there might be more
         setHasMore(data.contacts.length === PAGE_SIZE);
+        hasLoadedOnceRef.current = true;
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load contacts");
         if (!append) setLoading(false);
       } finally {
         setLoadingMore(false);
+        setSearching(false);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,6 +138,7 @@ export function useContacts(options: UseContactsOptions = {}) {
   return {
     contacts: contactList,
     loading,
+    searching,
     error,
     hasMore,
     loadingMore,

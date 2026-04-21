@@ -135,7 +135,10 @@ export function ClientsScreen() {
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const debouncedSearch = useDebounce(searchQuery, 300);
-  const { contacts, loading, error, hasMore, loadingMore, loadMore } = useContacts({ q: debouncedSearch });
+  const { contacts, loading, searching, error, hasMore, loadingMore, loadMore } = useContacts({ q: debouncedSearch });
+  // Spinner shows the moment user starts typing (before the 300ms debounce fires)
+  // and while the fetch is in flight — so there's no silent dead-zone.
+  const searchPending = searching || (searchQuery !== debouncedSearch);
 
   // ── Filter ────────────────────────────────────────────────────────────────
   let filtered = contacts.filter((c) => {
@@ -346,6 +349,7 @@ export function ClientsScreen() {
       <SearchBar
         value={searchQuery}
         onChange={(value) => setSearchQuery(value)}
+        loading={searchPending}
         className="mx-5 mb-3"
       />
 
@@ -368,7 +372,13 @@ export function ClientsScreen() {
 
       {/* Contact list / table — with optional alpha sidebar */}
       <div className="flex-1 flex overflow-hidden relative">
-        <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        <div
+          ref={scrollRef}
+          className={`flex-1 overflow-y-auto transition-opacity duration-200 ${
+            searchPending ? "opacity-60 pointer-events-none" : "opacity-100"
+          }`}
+          aria-busy={searchPending}
+        >
           {renderList()}
         </div>
 
