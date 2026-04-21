@@ -23,7 +23,8 @@ interface RegenerateResponse {
 
 export function useRegenerate(contactId: string) {
   const [regenerating, setRegenerating] = useState(false);
-  const { upsertContact, setSections, contacts } = useContactsStore();
+  const upsertContact = useContactsStore((s) => s.upsertContact);
+  const setSections = useContactsStore((s) => s.setSections);
   const { addToast } = useUIStore();
 
   const trigger = useCallback(async () => {
@@ -50,8 +51,9 @@ export function useRegenerate(contactId: string) {
 
       const data = (await res.json()) as RegenerateResponse;
 
-      // Merge updated metadata + sections into store
-      const cached = contacts[contactId];
+      // Merge updated metadata + sections into store.
+      // Use getState() to read current snapshot — avoids stale closure on contacts map.
+      const cached = useContactsStore.getState().contacts[contactId];
       if (cached) {
         upsertContact({
           ...cached,
@@ -68,7 +70,7 @@ export function useRegenerate(contactId: string) {
     } finally {
       setRegenerating(false);
     }
-  }, [contactId, contacts, upsertContact, setSections, addToast]);
+  }, [contactId, upsertContact, setSections, addToast]);
 
   return { regenerating, trigger };
 }

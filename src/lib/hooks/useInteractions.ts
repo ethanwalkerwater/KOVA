@@ -29,10 +29,12 @@ interface AppendResult {
 }
 
 export function useInteractions(contactId: string) {
-  const { contacts, appendInteraction, upsertContact } = useContactsStore();
+  const appendInteraction = useContactsStore((s) => s.appendInteraction);
+  const upsertContact = useContactsStore((s) => s.upsertContact);
   const { addToast } = useUIStore();
 
-  const interactions = contacts[contactId]?.interactions ?? [];
+  // Read interactions directly from the store — re-renders when this contact updates
+  const interactions = useContactsStore((s) => s.contacts[contactId]?.interactions ?? []);
 
   const append = useCallback(
     async (options: AppendOptions): Promise<AppendResult | null> => {
@@ -104,10 +106,11 @@ export function useInteractions(contactId: string) {
 
         appendInteraction(contactId, data.interaction);
 
-        // If Tier 1 ran and returned updated metadata, patch the contact cache
+        // If Tier 1 ran and returned updated metadata, patch the contact cache.
+        // Use getState() to avoid a stale closure on the contacts map.
         if (data.tier1 && typeof data.tier1 === "object") {
           const tier1 = data.tier1 as { output?: Partial<Contact> };
-          const cached = contacts[contactId];
+          const cached = useContactsStore.getState().contacts[contactId];
           if (cached && tier1.output) {
             upsertContact({ ...cached, ...tier1.output });
           }
@@ -130,7 +133,7 @@ export function useInteractions(contactId: string) {
         return null;
       }
     },
-    [contactId, contacts, appendInteraction, upsertContact, addToast],
+    [contactId, appendInteraction, upsertContact, addToast],
   );
 
   return {
