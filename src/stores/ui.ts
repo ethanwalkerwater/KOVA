@@ -9,10 +9,27 @@ import { create } from "zustand";
 
 export type ToastVariant = "info" | "success" | "error";
 
+export interface ToastAction {
+  /** Button label, kept short (e.g. "Undo", "Retry"). */
+  label: string;
+  /** Invoked when the user taps the action. The toast is dismissed after. */
+  onClick: () => void;
+}
+
 export interface Toast {
   id: string;
   message: string;
   variant: ToastVariant;
+  /** Optional action button (e.g. Undo). */
+  action?: ToastAction;
+  /** Override the default auto-dismiss duration. Actionable toasts need
+   *  longer so the user has time to read and react. */
+  durationMs?: number;
+}
+
+export interface ToastOptions {
+  action?: ToastAction;
+  durationMs?: number;
 }
 
 export type CaptureMode = "text" | "scan";
@@ -37,7 +54,7 @@ interface UIState {
 
   // ── Toasts ─────────────────────────────────────────────────────────────────
   toasts: Toast[];
-  addToast: (message: string, variant?: ToastVariant) => void;
+  addToast: (message: string, variant?: ToastVariant, options?: ToastOptions) => void;
   dismissToast: (id: string) => void;
 
   // ── Regeneration state ─────────────────────────────────────────────────────
@@ -78,9 +95,18 @@ export const useUIStore = create<UIState>((set) => ({
   setContactSearchQuery: (query) => set({ contactSearchQuery: query }),
 
   toasts: [],
-  addToast: (message, variant = "info") =>
+  addToast: (message, variant = "info", options) =>
     set((state) => ({
-      toasts: [...state.toasts, { id: String(++toastCounter), message, variant }],
+      toasts: [
+        ...state.toasts,
+        {
+          id: String(++toastCounter),
+          message,
+          variant,
+          action: options?.action,
+          durationMs: options?.durationMs,
+        },
+      ],
     })),
   dismissToast: (id) =>
     set((state) => ({

@@ -167,6 +167,20 @@ export function ContactDetailScreen({ id }: Props) {
 
   async function handleRestoreSection(section: Section) {
     if (!contact) return;
+
+    // Guard rails: confirm before wiping the user's manual edits. The AI
+    // version is re-derivable; the override isn't.
+    const confirmed =
+      typeof window === "undefined" ||
+      window.confirm(
+        "Discard your edits and restore the AI-generated version?\n\nYou can undo this right after, but the edits won't be recoverable once the undo toast dismisses.",
+      );
+    if (!confirmed) return;
+
+    // Cache the prior override so Undo can restore it.
+    const priorOverride = section.user_overrides_md;
+    const priorReason = section.override_reason;
+
     try {
       const res = await fetch(`/api/sections/${section.id}`, {
         method: "PATCH",
@@ -176,7 +190,33 @@ export function ContactDetailScreen({ id }: Props) {
       if (!res.ok) throw new Error("Restore failed");
       const data = (await res.json()) as { section: Section };
       upsertSection(contact.id, data.section);
-      addToast("Restored AI version", "success");
+
+      addToast("Restored AI version", "success", {
+        durationMs: 8000,
+        action: priorOverride
+          ? {
+              label: "Undo",
+              onClick: async () => {
+                try {
+                  const undoRes = await fetch(`/api/sections/${section.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      user_overrides_md: priorOverride,
+                      override_reason: priorReason,
+                    }),
+                  });
+                  if (!undoRes.ok) throw new Error("Undo failed");
+                  const undoData = (await undoRes.json()) as { section: Section };
+                  upsertSection(contact.id, undoData.section);
+                  addToast("Your edits are back", "success");
+                } catch {
+                  addToast("Undo failed — edits may be lost", "error");
+                }
+              },
+            }
+          : undefined,
+      });
     } catch {
       addToast("Restore failed", "error");
     }

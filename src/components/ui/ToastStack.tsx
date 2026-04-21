@@ -42,11 +42,11 @@ interface ToastItemProps {
 }
 
 function ToastItem({ toast, onDismiss }: ToastItemProps) {
-  // Auto-dismiss
+  // Auto-dismiss — actionable toasts can override the default duration.
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(toast.id), AUTO_DISMISS_MS);
+    const timer = setTimeout(() => onDismiss(toast.id), toast.durationMs ?? AUTO_DISMISS_MS);
     return () => clearTimeout(timer);
-  }, [toast.id, onDismiss]);
+  }, [toast.id, toast.durationMs, onDismiss]);
 
   return (
     <div
@@ -60,6 +60,17 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
     >
       {toastIcon(toast.variant)}
       <span className="flex-1 text-sm font-medium">{toast.message}</span>
+      {toast.action && (
+        <button
+          onClick={() => {
+            toast.action!.onClick();
+            onDismiss(toast.id);
+          }}
+          className="text-sm font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity shrink-0"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         onClick={() => onDismiss(toast.id)}
         className="opacity-60 hover:opacity-100 transition-opacity"
