@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChevronDown, ChevronUp, Pencil, RotateCcw } from "lucide-react";
@@ -28,13 +28,35 @@ export function SectionRenderer({
 }: SectionRendererProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
+  // Flash the card border for 900ms whenever regenerated_at advances, so the
+  // user gets a visible signal that AI rebuilt this section. First mount does
+  // not flash (initial load should feel calm).
+  const [justRebuilt, setJustRebuilt] = useState(false);
+  const prevRegeneratedAtRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevRegeneratedAtRef.current;
+    if (prev !== null && prev !== section.regenerated_at) {
+      setJustRebuilt(true);
+      const t = setTimeout(() => setJustRebuilt(false), 900);
+      prevRegeneratedAtRef.current = section.regenerated_at;
+      return () => clearTimeout(t);
+    }
+    prevRegeneratedAtRef.current = section.regenerated_at;
+  }, [section.regenerated_at]);
+
   const Icon = getSectionIcon(section.slug);
   const colorClass = getSectionColor(section.slug);
   const isOverridden = Boolean(section.user_overrides_md);
   const displayContent = isOverridden ? section.user_overrides_md! : section.content_md;
 
   return (
-    <div className={cn("bg-surface-primary rounded-2xl border border-border p-4", className)}>
+    <div
+      className={cn(
+        "bg-surface-primary rounded-2xl border p-4 transition-colors duration-700",
+        justRebuilt ? "border-accent shadow-[0_0_0_3px_rgba(37,99,235,0.15)]" : "border-border",
+        className,
+      )}
+    >
       {/* Header row — div (not button) so we can nest interactive controls */}
       <div className="flex w-full items-center justify-between">
         {/* Left: expand toggle + icon + title */}

@@ -333,6 +333,17 @@ export function ContactDetailScreen({ id }: Props) {
         </div>
       </div>
 
+      {/* Regenerating banner — GPT-4o takes ~10s; give the user clear progress
+          feedback instead of only the tiny button spinner. */}
+      {regenerating && (
+        <div className="mx-4 mb-3 bg-accent-light border border-accent/20 rounded-2xl px-4 py-3 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 text-accent animate-spin shrink-0" aria-hidden="true" />
+          <p className="text-accent text-xs">
+            Rebuilding profile from all interactions… (takes ~10s)
+          </p>
+        </div>
+      )}
+
       {/* Pending banner — shown while contact awaits server sync */}
       {isLocalId(contact.id) && (
         <div className="mx-4 mb-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center gap-2">
