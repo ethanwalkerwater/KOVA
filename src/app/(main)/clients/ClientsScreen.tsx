@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Plus, Loader2, LayoutList, Table2 } from "lucide-react";
-import { StatusBar, SearchBar, Avatar, Chip, FAB } from "@/components/ui";
+import { StatusBar, SearchBar, Avatar, Chip, FAB, AlphaIndexSidebar } from "@/components/ui";
 import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { useContacts } from "@/lib/hooks/useContacts";
 import { useUIStore } from "@/stores/ui";
@@ -112,25 +112,32 @@ function ContactCard({ contact, isLast }: ContactCardProps) {
   );
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+/** Returns the uppercase first letter for grouping, or "#" for non-alpha names. */
+function getGroupLetter(name: string): string {
+  const first = name.trim()[0]?.toUpperCase() ?? "#";
+  return /[A-Z]/.test(first) ? first : "#";
+}
+
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 export function ClientsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  // Default to table view on desktop — togglable
   const [viewMode, setViewMode] = useState<"list" | "table">("list");
+  const [activeLetter, setActiveLetter] = useState<string | undefined>();
   const { openCapture } = useUIStore();
 
-  // Debounce search query: 300ms delay prevents excessive filtering/API calls while typing
-  const debouncedSearch = useDebounce(searchQuery, 300);
+  // Scroll container ref for the contact list
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Map of letter → section header element for scrolling
+  const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Load contacts — Phase 1: mock data, Phase 2: Supabase via /api/contacts
-  // Pass debouncedSearch so Phase 2 server-side search fires after typing pauses
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const { contacts, loading, error } = useContacts({ q: debouncedSearch });
 
-  // Stage/importance filter — always client-side (fast, doesn't need API round-trip)
-  // Search: Phase 2 is handled server-side via useContacts({ q: debouncedSearch });
-  //         Phase 1 falls back to client-side substring match.
+  // ── Filter ────────────────────────────────────────────────────────────────
   let filtered = contacts.filter((c) => {
     if (filter === "high") return c.importance === "high";
     if (filter === "engaged") return c.stage === "engaged" || c.stage === "negotiating";
@@ -138,7 +145,7 @@ export function ClientsScreen() {
     return true;
   });
 
-  // Phase 1 only: client-side text search (Phase 2 uses API q param above)
+  // Phase 1 only: client-side text search
   if (!isSupabaseConfigured() && debouncedSearch.trim()) {
     const q = debouncedSearch.toLowerCase();
     filtered = filtered.filter(
@@ -150,14 +157,125 @@ export function ClientsScreen() {
     );
   }
 
-  // Sort: high importance first, then by last_interaction_at descending
-  filtered = [...filtered].sort((a, b) => {
-    if (a.importance === "high" && b.importance !== "high") return -1;
-    if (a.importance !== "high" && b.importance === "high") return 1;
-    const aTime = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
-    const bTime = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
-    return bTime - aTime;
-  });
+  // ── Alpha mode: no active search + "all" filter → show grouped alphabetically
+  // Otherwise: sort by importance then recency (power-user default)
+  const alphaMode = viewMode === "list" && !debouncedSearch.trim() && filter === "all";
+
+  const sortedFiltered = useMemo(() => {
+    if (alphaMode) {
+      return [...filtered].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      );
+    }
+    return [...filtered].sort((a, b) => {
+      if (a.importance === "high" && b.importance !== "high") return -1;
+      if (a.importance !== "high" && b.importance === "high") return 1;
+      const aTime = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
+      const bTime = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [filtered, alphaMode]);
+
+  // Group contacts by letter (only used in alpha mode)
+  const grouped = useMemo(() => {
+    if (!alphaMode) return null;
+    const map = new Map<string, ContactWithRelations[]>();
+    for (const c of sortedFiltered) {
+      const letter = getGroupLetter(c.name);
+      const group = map.get(letter) ?? [];
+      group.push(c);
+      map.set(letter, group);
+    }
+    return map;
+  }, [sortedFiltered, alphaMode]);
+
+  const availableLetters = useMemo(
+    () => (grouped ? Array.from(grouped.keys()) : []),
+    [grouped],
+  );
+
+  // Scroll to a letter section
+  const handleLetterPress = useCallback((letter: string) => {
+    setActiveLetter(letter);
+    const el = sectionRefs.current.get(letter);
+    if (el && scrollRef.current) {
+      scrollRef.current.scrollTo({ top: el.offsetTop - 8, behavior: "smooth" });
+    }
+  }, []);
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  const renderList = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-6 h-6 text-fg-muted animate-spin" />
+        </div>
+      );
+    }
+    if (error) {
+      return (
+        <div className="text-center py-12 px-5">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      );
+    }
+    if (sortedFiltered.length === 0 && debouncedSearch.trim()) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-fg-muted text-sm">No contacts match &quot;{debouncedSearch}&quot;</p>
+        </div>
+      );
+    }
+    if (sortedFiltered.length === 0) {
+      return (
+        <div className="text-center py-16 px-8">
+          <p className="text-fg-primary font-semibold text-base">No contacts yet</p>
+          <p className="text-fg-muted text-sm mt-1">
+            Tap the + button to add your first contact.
+          </p>
+        </div>
+      );
+    }
+    if (viewMode === "table") {
+      return (
+        <div className="px-5 py-3">
+          <ContactsTable contacts={sortedFiltered} />
+        </div>
+      );
+    }
+    if (alphaMode && grouped) {
+      return Array.from(grouped.entries()).map(([letter, group]) => (
+        <div key={letter}>
+          {/* Section header */}
+          <div
+            ref={(el) => {
+              if (el) sectionRefs.current.set(letter, el);
+              else sectionRefs.current.delete(letter);
+            }}
+            className="px-5 py-1.5 bg-surface-secondary border-b border-border-light"
+          >
+            <span className="text-xs font-semibold text-fg-muted tracking-wider">{letter}</span>
+          </div>
+          {/* Contacts in this group */}
+          {group.map((contact, index) => (
+            <ContactCard
+              key={contact.id}
+              contact={contact}
+              isLast={index === group.length - 1}
+            />
+          ))}
+        </div>
+      ));
+    }
+    // Flat list (search active or filter applied)
+    return sortedFiltered.map((contact, index) => (
+      <ContactCard
+        key={contact.id}
+        contact={contact}
+        isLast={index === sortedFiltered.length - 1}
+      />
+    ));
+  };
 
   return (
     <div className="flex flex-col h-full bg-surface-primary">
@@ -228,36 +346,21 @@ export function ClientsScreen() {
         ))}
       </div>
 
-      {/* Contact list / table */}
-      <div className="flex-1 overflow-y-auto">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 text-fg-muted animate-spin" />
+      {/* Contact list / table — with optional alpha sidebar */}
+      <div className="flex-1 flex overflow-hidden relative">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto">
+          {renderList()}
+        </div>
+
+        {/* Alpha index sidebar — only in alpha mode with enough contacts */}
+        {alphaMode && availableLetters.length > 3 && (
+          <div className="absolute right-0 top-0 bottom-0 w-6 flex items-stretch py-1 z-10">
+            <AlphaIndexSidebar
+              letters={availableLetters}
+              onLetterPress={handleLetterPress}
+              activeLetter={activeLetter}
+            />
           </div>
-        ) : error ? (
-          <div className="text-center py-12 px-5">
-            <p className="text-red-600 text-sm">{error}</p>
-          </div>
-        ) : filtered.length === 0 && debouncedSearch.trim() ? (
-          <div className="text-center py-12">
-            <p className="text-fg-muted text-sm">No contacts match &quot;{debouncedSearch}&quot;</p>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16 px-8">
-            <p className="text-fg-primary font-semibold text-base">No contacts yet</p>
-            <p className="text-fg-muted text-sm mt-1">
-              Tap the + button to add your first contact.
-            </p>
-          </div>
-        ) : viewMode === "table" ? (
-          /* Desktop table — only reachable when viewMode=table on md+ screens */
-          <div className="px-5 py-3">
-            <ContactsTable contacts={filtered} />
-          </div>
-        ) : (
-          filtered.map((contact, index) => (
-            <ContactCard key={contact.id} contact={contact} isLast={index === filtered.length - 1} />
-          ))
         )}
       </div>
 

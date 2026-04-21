@@ -6,3 +6,4 @@ export { Avatar } from "./Avatar";
 export { Chip } from "./Chip";
 export { SearchBar } from "./SearchBar";
 export { Button } from "./Button";
+export { AlphaIndexSidebar } from "./AlphaIndexSidebar";
