@@ -21,4 +21,10 @@ export interface Interaction {
   ai_generated: boolean;
   created_at: string;
   // NOTE: no updated_at — interactions are immutable (append-only)
+
+  // ── Client-only sync state (never sent to Supabase) ──────────────────────────
+  /** True while the interaction hasn't been confirmed by the server yet. */
+  pending?: boolean;
+  /** True once all retry attempts have been exhausted (attempt_count >= MAX_ATTEMPTS). */
+  syncFailed?: boolean;
 }

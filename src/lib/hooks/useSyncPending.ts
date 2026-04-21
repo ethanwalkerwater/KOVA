@@ -27,6 +27,19 @@ import type { ContactWithRelations } from "@/stores/contacts";
 
 const MAX_ATTEMPTS = 5;
 
+// Module-level ref set when the hook mounts. Lets any component trigger a sync
+// without prop-drilling or a separate context — e.g. the "Retry" button in
+// InteractionTimeline calls triggerSync() after resetting attempt_count in Dexie.
+let _drainQueue: (() => Promise<void>) | null = null;
+
+/**
+ * Trigger a sync drain from outside React hooks (e.g. from a Retry button).
+ * Safe to call before the hook mounts — it's a no-op if _drainQueue isn't set.
+ */
+export function triggerSync(): void {
+  void _drainQueue?.();
+}
+
 export function useSyncPending() {
   const syncingRef = useRef(false);
 
@@ -58,7 +71,14 @@ export function useSyncPending() {
       const pendingContacts = await getPendingContacts();
 
       for (const item of pendingContacts) {
-        if (item.attempt_count >= MAX_ATTEMPTS) continue;
+        if (item.attempt_count >= MAX_ATTEMPTS) {
+          // Mark permanently failed in Zustand
+          const cached = useContactsStore.getState().contacts[item.local_id];
+          if (cached && !cached.syncFailed) {
+            upsertContact({ ...cached, syncFailed: true });
+          }
+          continue;
+        }
 
         try {
           const payload = JSON.parse(item.payload) as Record<string, unknown>;
@@ -110,7 +130,28 @@ export function useSyncPending() {
       if (pendingInteractions.length === 0) return;
 
       for (const item of pendingInteractions) {
-        if (item.attempt_count >= MAX_ATTEMPTS) continue;
+        if (item.attempt_count >= MAX_ATTEMPTS) {
+          // Mark permanently failed in Zustand so the UI can show a Retry button.
+          try {
+            const payload = JSON.parse(item.payload) as Record<string, unknown>;
+            const contactId = typeof payload.contact_id === "string" ? payload.contact_id : null;
+            if (contactId) {
+              const cached = useContactsStore.getState().contacts[contactId];
+              if (cached) {
+                const alreadyFailed = cached.interactions.some(
+                  (i) => i.id === item.local_id && i.syncFailed,
+                );
+                if (!alreadyFailed) {
+                  const patched = cached.interactions.map((i) =>
+                    i.id === item.local_id ? { ...i, syncFailed: true } : i,
+                  );
+                  upsertContact({ ...cached, interactions: patched });
+                }
+              }
+            }
+          } catch { /* ignore payload parse errors */ }
+          continue;
+        }
 
         try {
           const payload = JSON.parse(item.payload) as Record<string, unknown>;
@@ -172,11 +213,17 @@ export function useSyncPending() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Expose drainQueue to external callers (e.g. Retry buttons)
+    _drainQueue = drainQueue;
+
     // Attempt on mount (catches reconnects after page was open offline)
     void drainQueue();
 
     // Attempt whenever the browser comes back online
     window.addEventListener("online", drainQueue);
-    return () => window.removeEventListener("online", drainQueue);
+    return () => {
+      window.removeEventListener("online", drainQueue);
+      _drainQueue = null;
+    };
   }, [drainQueue]);
 }

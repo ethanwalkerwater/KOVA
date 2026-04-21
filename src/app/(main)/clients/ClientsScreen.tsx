@@ -2,14 +2,18 @@
 
 import { useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Loader2, LayoutList, Table2, ChevronDown, Users, Upload } from "lucide-react";
+import { Plus, Loader2, LayoutList, Table2, ChevronDown, Users, Upload, CloudOff, RefreshCw, AlertCircle } from "lucide-react";
 import { StatusBar, SearchBar, Avatar, Chip, FAB, AlphaIndexSidebar } from "@/components/ui";
 import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { useContacts } from "@/lib/hooks/useContacts";
 import { useUIStore } from "@/stores/ui";
 import { useDebounce } from "@/lib/hooks/useDebounce";
+import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 import { formatRelativeTime } from "@/lib/utils/date";
+import { resetSyncAttempts } from "@/lib/db/dexie";
+import { triggerSync } from "@/lib/hooks/useSyncPending";
+import { useContactsStore } from "@/stores/contacts";
 import type { PipelineStage } from "@/types/contact";
 import type { ContactWithRelations } from "@/stores/contacts";
 
@@ -52,29 +56,54 @@ interface ContactCardProps {
 
 function ContactCard({ contact, isLast }: ContactCardProps) {
   const stageChip = getStageChip(contact.stage);
+  const isOnline = useOnlineStatus();
 
-  return (
-    <Link
-      href={`/clients/${contact.id}`}
-      className={`flex items-center gap-3 px-5 py-3.5 bg-surface-primary${!isLast ? " border-b border-border-light" : ""}`}
-    >
+  const handleRetry = useCallback(async () => {
+    await resetSyncAttempts(contact.id, "contact");
+    const cached = useContactsStore.getState().contacts[contact.id];
+    if (cached) {
+      useContactsStore.getState().upsertContact({ ...cached, syncFailed: false });
+    }
+    triggerSync();
+  }, [contact.id]);
+
+  // ── Pending sync badge ─────────────────────────────────────────────────────
+  const syncBadge = contact.pending ? (
+    contact.syncFailed ? (
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); void handleRetry(); }}
+        className="inline-flex items-center gap-0.5 ml-2 shrink-0 text-red-500 text-xs hover:opacity-80"
+        aria-label="Sync failed — tap to retry"
+      >
+        <AlertCircle className="w-3 h-3" />
+        Failed — Retry
+      </button>
+    ) : !isOnline ? (
+      <span className="inline-flex items-center gap-0.5 ml-2 shrink-0 text-fg-muted text-xs">
+        <CloudOff className="w-3 h-3" />
+        Saved offline
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-0.5 ml-2 shrink-0 text-fg-muted text-xs">
+        <RefreshCw className="w-3 h-3 animate-spin" />
+        Syncing
+      </span>
+    )
+  ) : null;
+
+  // ── Card body shared between Link and div variants ─────────────────────────
+  const inner = (
+    <>
       <Avatar size="sm" name={contact.name} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-fg-primary text-sm">{contact.name}</span>
-          {contact.pending ? (
-            <span className="inline-flex items-center gap-0.5 ml-2 shrink-0 text-fg-muted text-xs">
-              <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Syncing...
-            </span>
-          ) : contact.last_interaction_at ? (
+          {syncBadge ?? (contact.last_interaction_at ? (
             <span className="text-fg-muted text-xs ml-2 shrink-0" suppressHydrationWarning>
               {formatRelativeTime(contact.last_interaction_at)}
             </span>
-          ) : null}
+          ) : null)}
         </div>
         {(contact.title || contact.company) && (
           <p className="text-fg-secondary text-xs truncate">
@@ -84,16 +113,10 @@ function ContactCard({ contact, isLast }: ContactCardProps) {
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           {stageChip && <Chip label={stageChip.label} variant={stageChip.variant} />}
           {contact.importance === "high" && (
-            <span
-              className="w-2 h-2 rounded-full bg-accent-orange shrink-0"
-              aria-label="High priority"
-            />
+            <span className="w-2 h-2 rounded-full bg-accent-orange shrink-0" aria-label="High priority" />
           )}
           {contact.importance === "medium" && (
-            <span
-              className="w-2 h-2 rounded-full bg-accent shrink-0"
-              aria-label="Medium priority"
-            />
+            <span className="w-2 h-2 rounded-full bg-accent shrink-0" aria-label="Medium priority" />
           )}
           {contact.tags.slice(0, 2).map((tag) => (
             <span
@@ -108,6 +131,20 @@ function ContactCard({ contact, isLast }: ContactCardProps) {
           )}
         </div>
       </div>
+    </>
+  );
+
+  const rowClass = `flex items-center gap-3 px-5 py-3.5 bg-surface-primary${!isLast ? " border-b border-border-light" : ""}`;
+
+  // Failed contacts can't navigate (the id may still be a local stub) — render
+  // as a plain div with a Retry button so the user isn't trapped in a dead link.
+  if (contact.syncFailed) {
+    return <div className={rowClass}>{inner}</div>;
+  }
+
+  return (
+    <Link href={`/clients/${contact.id}`} className={rowClass}>
+      {inner}
     </Link>
   );
 }

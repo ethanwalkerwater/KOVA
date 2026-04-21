@@ -30,6 +30,11 @@ export interface LocalInteraction extends Interaction {
   pending?: boolean;
   /** The real server ID, once synced. Used to patch up references after sync. */
   server_id?: string;
+  /**
+   * Set to true when all retry attempts have been exhausted.
+   * The user must explicitly hit "Retry" to reset attempts and try again.
+   */
+  syncFailed?: boolean;
 }
 
 export interface PendingSync {
@@ -277,6 +282,27 @@ export async function removePendingContact(localId: string): Promise<void> {
     await db.contacts.delete(localId);
   } catch (err) {
     console.warn("[dexie] Failed to remove pending contact:", err);
+  }
+}
+
+/**
+ * Reset retry attempts on a stuck pending item so the user can try again.
+ * Also clears the syncFailed flag in the local interactions cache.
+ */
+export async function resetSyncAttempts(
+  localId: string,
+  type: "interaction" | "contact",
+): Promise<void> {
+  try {
+    const db = getDb();
+    if (type === "interaction") {
+      await db.pending_sync.update(localId, { attempt_count: 0 });
+      await db.interactions.update(localId, { syncFailed: false });
+    } else {
+      await db.pending_contacts.update(localId, { attempt_count: 0 });
+    }
+  } catch (err) {
+    console.warn("[dexie] Failed to reset sync attempts:", err);
   }
 }
 

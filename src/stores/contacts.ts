@@ -23,6 +23,11 @@ export interface ContactWithRelations extends Contact {
    * Local-only flag — never sent to Supabase.
    */
   pending?: boolean;
+  /**
+   * True when all retry attempts for this contact have been exhausted.
+   * Local-only flag — the user must explicitly hit "Retry".
+   */
+  syncFailed?: boolean;
 }
 
 interface ContactsState {
