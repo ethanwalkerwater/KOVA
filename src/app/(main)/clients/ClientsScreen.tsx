@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Loader2, LayoutList, Table2 } from "lucide-react";
+import { Plus, Loader2, LayoutList, Table2, ChevronDown } from "lucide-react";
 import { StatusBar, SearchBar, Avatar, Chip, FAB, AlphaIndexSidebar } from "@/components/ui";
 import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { useContacts } from "@/lib/hooks/useContacts";
@@ -135,7 +135,7 @@ export function ClientsScreen() {
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const debouncedSearch = useDebounce(searchQuery, 300);
-  const { contacts, loading, error } = useContacts({ q: debouncedSearch });
+  const { contacts, loading, error, hasMore, loadingMore, loadMore } = useContacts({ q: debouncedSearch });
 
   // ── Filter ────────────────────────────────────────────────────────────────
   let filtered = contacts.filter((c) => {
@@ -268,13 +268,33 @@ export function ClientsScreen() {
       ));
     }
     // Flat list (search active or filter applied)
-    return sortedFiltered.map((contact, index) => (
-      <ContactCard
-        key={contact.id}
-        contact={contact}
-        isLast={index === sortedFiltered.length - 1}
-      />
-    ));
+    return (
+      <>
+        {sortedFiltered.map((contact, index) => (
+          <ContactCard
+            key={contact.id}
+            contact={contact}
+            isLast={index === sortedFiltered.length - 1 && !hasMore}
+          />
+        ))}
+        {hasMore && (
+          <div className="flex justify-center py-4">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-surface-secondary text-fg-secondary text-sm font-medium border border-border hover:bg-border disabled:opacity-60"
+            >
+              {loadingMore ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+              {loadingMore ? "Loading..." : "Load more"}
+            </button>
+          </div>
+        )}
+      </>
+    );
   };
 
   return (

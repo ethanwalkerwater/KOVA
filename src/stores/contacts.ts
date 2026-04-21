@@ -62,6 +62,12 @@ interface ContactsState {
   /** Set list order (after search/filter). */
   setListIds: (ids: string[]) => void;
 
+  /**
+   * Append the next page of contacts to the existing list.
+   * Used for "load more" pagination — preserves contacts already in the map.
+   */
+  appendContacts: (contacts: ContactWithRelations[]) => void;
+
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 }
@@ -173,6 +179,27 @@ export const useContactsStore = create<ContactsState>((set) => ({
           ...state.contacts,
           [contactId]: { ...contact, sections },
         },
+      };
+    }),
+
+  appendContacts: (newContacts) =>
+    set((state) => {
+      const map = { ...state.contacts };
+      const newIds: string[] = [];
+      for (const c of newContacts) {
+        if (c.id in map) continue; // skip duplicates (shouldn't happen with offset, but safe)
+        const existing = map[c.id];
+        map[c.id] = {
+          ...c,
+          sections: existing?.sections?.length ? existing.sections : c.sections,
+          interactions: existing?.interactions?.length ? existing.interactions : c.interactions,
+        };
+        newIds.push(c.id);
+      }
+      return {
+        contacts: map,
+        listIds: [...state.listIds, ...newIds],
+        loading: false,
       };
     }),
 
