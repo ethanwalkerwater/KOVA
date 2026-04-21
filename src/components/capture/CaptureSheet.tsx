@@ -577,44 +577,58 @@ export function CaptureSheet() {
             </div>
           )}
 
-          {/* Mode tabs */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => dispatch({ type: "set_mode", mode: "text" })}
-              className={cn(
-                "flex items-center gap-1.5 px-3 h-8 rounded-lg text-sm font-medium transition-colors",
-                form.mode === "text"
-                  ? "bg-accent text-fg-inverse"
-                  : "bg-surface-secondary text-fg-secondary",
-              )}
-            >
-              <Type className="w-3.5 h-3.5" />
-              Text
-            </button>
-            <button
-              onClick={() => dispatch({ type: "set_mode", mode: "voice" })}
-              className={cn(
-                "flex items-center gap-1.5 px-3 h-8 rounded-lg text-sm font-medium transition-colors",
-                form.mode === "voice"
-                  ? "bg-accent text-fg-inverse"
-                  : "bg-surface-secondary text-fg-secondary",
-              )}
-            >
-              <Mic className="w-3.5 h-3.5" />
-              Voice
-            </button>
-            <button
-              onClick={() => dispatch({ type: "set_mode", mode: "scan" })}
-              className={cn(
-                "flex items-center gap-1.5 px-3 h-8 rounded-lg text-sm font-medium transition-colors",
-                form.mode === "scan"
-                  ? "bg-accent text-fg-inverse"
-                  : "bg-surface-secondary text-fg-secondary",
-              )}
-            >
-              <ScanLine className="w-3.5 h-3.5" />
-              Scan
-            </button>
+          {/* Mode tabs — locked during active voice recording so switching mid-stream
+              can't silently drop transcription + leak the mic stream. */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex gap-2">
+              <button
+                onClick={() => dispatch({ type: "set_mode", mode: "text" })}
+                disabled={isRecording}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 h-8 rounded-lg text-sm font-medium transition-colors",
+                  form.mode === "text"
+                    ? "bg-accent text-fg-inverse"
+                    : "bg-surface-secondary text-fg-secondary",
+                  isRecording && "opacity-50 cursor-not-allowed",
+                )}
+              >
+                <Type className="w-3.5 h-3.5" />
+                Text
+              </button>
+              <button
+                onClick={() => dispatch({ type: "set_mode", mode: "voice" })}
+                disabled={isRecording}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 h-8 rounded-lg text-sm font-medium transition-colors",
+                  form.mode === "voice"
+                    ? "bg-accent text-fg-inverse"
+                    : "bg-surface-secondary text-fg-secondary",
+                  isRecording && "opacity-50 cursor-not-allowed",
+                )}
+              >
+                <Mic className="w-3.5 h-3.5" />
+                Voice
+              </button>
+              <button
+                onClick={() => dispatch({ type: "set_mode", mode: "scan" })}
+                disabled={isRecording}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 h-8 rounded-lg text-sm font-medium transition-colors",
+                  form.mode === "scan"
+                    ? "bg-accent text-fg-inverse"
+                    : "bg-surface-secondary text-fg-secondary",
+                  isRecording && "opacity-50 cursor-not-allowed",
+                )}
+              >
+                <ScanLine className="w-3.5 h-3.5" />
+                Scan
+              </button>
+            </div>
+            {isRecording && (
+              <p className="text-fg-muted text-xs">
+                Release the mic button to switch mode
+              </p>
+            )}
           </div>
 
           {/* ── Text mode ─────────────────────────────────────────────────── */}
