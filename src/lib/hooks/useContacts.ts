@@ -39,6 +39,9 @@ export function useContacts(options: UseContactsOptions = {}) {
   const [offset, setOffset] = useState(0);
   // Whether there are potentially more pages to load
   const [hasMore, setHasMore] = useState(false);
+  // Total count reported by the server for the active query — drives the
+  // "Showing X of Y" label and the visibility of the Load more button.
+  const [total, setTotal] = useState<number | null>(null);
   // Loading state specifically for "load more" (separate from initial load spinner)
   const [loadingMore, setLoadingMore] = useState(false);
   // In-flight state for search / filter / sort changes after the first load.
@@ -50,6 +53,7 @@ export function useContacts(options: UseContactsOptions = {}) {
   useEffect(() => {
     setOffset(0);
     setHasMore(false);
+    setTotal(null);
   }, [q, stage, importance, sort]);
 
   const fetchContacts = useCallback(
@@ -92,7 +96,7 @@ export function useContacts(options: UseContactsOptions = {}) {
       try {
         const res = await fetch(`/api/contacts?${params.toString()}`);
         if (!res.ok) throw new Error(`Failed to fetch contacts: ${res.statusText}`);
-        const data = (await res.json()) as { contacts: Contact[] };
+        const data = (await res.json()) as { contacts: Contact[]; total?: number };
 
         const withRelations: ContactWithRelations[] = data.contacts.map((c) => ({
           ...c,
@@ -106,8 +110,16 @@ export function useContacts(options: UseContactsOptions = {}) {
           setContacts(withRelations);
         }
 
-        // If we got a full page, there might be more
-        setHasMore(data.contacts.length === PAGE_SIZE);
+        // Prefer the server-reported total when available; fall back to
+        // "got a full page => probably more" if the count query silently
+        // failed server-side (graceful degrade).
+        if (typeof data.total === "number") {
+          setTotal(data.total);
+          const loadedCount = pageOffset + data.contacts.length;
+          setHasMore(loadedCount < data.total);
+        } else {
+          setHasMore(data.contacts.length === PAGE_SIZE);
+        }
         hasLoadedOnceRef.current = true;
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load contacts");
@@ -143,6 +155,7 @@ export function useContacts(options: UseContactsOptions = {}) {
     hasMore,
     loadingMore,
     loadMore,
+    total,
     refetch: () => fetchContacts(0, false),
   };
 }

@@ -78,45 +78,62 @@ export async function GET(request: NextRequest) {
     sectionMatchIds = [...new Set((sectionMatches ?? []).map((r) => r.contact_id as string))];
   }
 
-  let query = supabase.from("contacts").select("*").eq("owner_id", user.id);
+  // Apply the same ilike/section-match/stage/importance filters to both the
+  // data query and the count query so pagination + "Showing X of Y" agree.
+  const orClauses: string[] | null = q.trim()
+    ? (() => {
+        const safe = q.trim().replace(/[%_]/g, "\\$&"); // escape ilike wildcards
+        const clauses = [
+          `name.ilike.%${safe}%`,
+          `company.ilike.%${safe}%`,
+          `title.ilike.%${safe}%`,
+          `ai_summary.ilike.%${safe}%`,
+        ];
+        if (sectionMatchIds.length > 0) {
+          clauses.push(`id.in.(${sectionMatchIds.join(",")})`);
+        }
+        return clauses;
+      })()
+    : null;
 
   // Full-text search — ilike across contact fields + section content.
   // NOTE: textSearch() requires a stored tsvector column; the contacts_search_idx
   // is a GIN index on a computed expression, not a column — so textSearch() breaks
   // at runtime. ilike is correct at MVP scale; add a generated search_vector column
   // and switch to an RPC with websearch_to_tsquery for large datasets.
-  if (q.trim()) {
-    const safe = q.trim().replace(/[%_]/g, "\\$&"); // escape ilike wildcards
-
-    const orClauses = [
-      `name.ilike.%${safe}%`,
-      `company.ilike.%${safe}%`,
-      `title.ilike.%${safe}%`,
-      `ai_summary.ilike.%${safe}%`,
-    ];
-
-    if (sectionMatchIds.length > 0) {
-      // PostgREST .or() syntax for `id IN (...)`: id.in.(uuid1,uuid2,...)
-      orClauses.push(`id.in.(${sectionMatchIds.join(",")})`);
-    }
-
-    query = query.or(orClauses.join(","));
-  }
-
+  let query = supabase.from("contacts").select("*").eq("owner_id", user.id);
+  if (orClauses) query = query.or(orClauses.join(","));
   if (stage) query = query.eq("stage", stage);
   if (importance) query = query.eq("importance", importance);
-
   query = query.order(safeSort, { ascending: safeSort === "name", nullsFirst: false });
   query = query.range(offset, offset + limit - 1);
 
-  const { data, error } = await query;
+  // Parallel count query — same filters, no data returned. Lets the client
+  // render "Showing 50 of 237" and hide Load more when there's nothing left.
+  let countQuery = supabase
+    .from("contacts")
+    .select("*", { count: "exact", head: true })
+    .eq("owner_id", user.id);
+  if (orClauses) countQuery = countQuery.or(orClauses.join(","));
+  if (stage) countQuery = countQuery.eq("stage", stage);
+  if (importance) countQuery = countQuery.eq("importance", importance);
 
-  if (error) {
-    console.error("[contacts GET]", error);
+  const [dataRes, countRes] = await Promise.all([query, countQuery]);
+
+  if (dataRes.error) {
+    console.error("[contacts GET]", dataRes.error);
     return NextResponse.json({ error: "Failed to fetch contacts" }, { status: 500 });
   }
 
-  return NextResponse.json({ contacts: data ?? [], total: data?.length ?? 0 });
+  // Count query failure is non-fatal — fall back to a conservative total so
+  // the UI can still render. We bias toward showing "Load more" rather than
+  // prematurely hiding it.
+  const total =
+    countRes.error || countRes.count == null
+      ? (dataRes.data?.length ?? 0) + (dataRes.data?.length === limit ? 1 : 0)
+      : countRes.count;
+
+  return NextResponse.json({ contacts: dataRes.data ?? [], total });
 }
 
 export async function POST(request: NextRequest) {

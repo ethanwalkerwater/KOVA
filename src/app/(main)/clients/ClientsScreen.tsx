@@ -135,7 +135,8 @@ export function ClientsScreen() {
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const debouncedSearch = useDebounce(searchQuery, 300);
-  const { contacts, loading, searching, error, hasMore, loadingMore, loadMore } = useContacts({ q: debouncedSearch });
+  const { contacts, loading, searching, error, hasMore, loadingMore, loadMore, total } =
+    useContacts({ q: debouncedSearch });
   // Spinner shows the moment user starts typing (before the 300ms debounce fires)
   // and while the fetch is in flight — so there's no silent dead-zone.
   const searchPending = searching || (searchQuery !== debouncedSearch);
@@ -271,6 +272,10 @@ export function ClientsScreen() {
       ));
     }
     // Flat list (search active or filter applied)
+    const showingCountLabel =
+      typeof total === "number" && total > 0
+        ? `Showing ${sortedFiltered.length} of ${total}`
+        : null;
     return (
       <>
         {sortedFiltered.map((contact, index) => (
@@ -280,20 +285,27 @@ export function ClientsScreen() {
             isLast={index === sortedFiltered.length - 1 && !hasMore}
           />
         ))}
-        {hasMore && (
-          <div className="flex justify-center py-4">
-            <button
-              onClick={loadMore}
-              disabled={loadingMore}
-              className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-surface-secondary text-fg-secondary text-sm font-medium border border-border hover:bg-border disabled:opacity-60"
-            >
-              {loadingMore ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
-              {loadingMore ? "Loading..." : "Load more"}
-            </button>
+        {(hasMore || showingCountLabel) && (
+          <div className="flex flex-col items-center gap-2 py-4">
+            {showingCountLabel && (
+              <p className="text-fg-muted text-xs" aria-live="polite">
+                {showingCountLabel}
+              </p>
+            )}
+            {hasMore && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-surface-secondary text-fg-secondary text-sm font-medium border border-border hover:bg-border disabled:opacity-60"
+              >
+                {loadingMore ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+                {loadingMore ? "Loading..." : "Load more"}
+              </button>
+            )}
           </div>
         )}
       </>
