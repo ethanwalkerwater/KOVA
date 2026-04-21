@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, Download, Bell, HelpCircle, ChevronRight, LogOut, Loader2 } from "lucide-react";
+import { Shield, Download, Upload, Bell, HelpCircle, ChevronRight, LogOut, Loader2 } from "lucide-react";
 import { StatusBar, Avatar } from "@/components/ui";
 import { useAuthStore } from "@/stores/auth";
 import { useContactsStore } from "@/stores/contacts";
@@ -28,6 +28,11 @@ const MENU_ITEMS = [
     sublabel: "Download as CSV or JSON",
   },
   {
+    icon: Upload,
+    label: "Import Contacts",
+    sublabel: "Upload a CSV file",
+  },
+  {
     icon: Bell,
     label: "Notifications",
     sublabel: "Follow-up reminders",
@@ -46,6 +51,8 @@ export function MeScreen() {
   const contactCount = useContactsStore((s) => Object.keys(s.contacts).length);
   const [exporting, setExporting] = useState(false);
   const [showExportChoice, setShowExportChoice] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // Resolve display values: real user in Phase 2, demo values in Phase 1
   const displayName = user?.user_metadata?.display_name as string | undefined
@@ -91,6 +98,51 @@ export function MeScreen() {
     [addToast],
   );
 
+  const handleImport = useCallback(
+    async (file: File) => {
+      if (!isSupabaseConfigured()) {
+        addToast("Connect Supabase to import contacts", "info");
+        return;
+      }
+
+      setImporting(true);
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/import", { method: "POST", body: form });
+        const data = (await res.json()) as {
+          imported?: number;
+          skipped?: number;
+          errors?: string[];
+          truncated?: boolean;
+          error?: string;
+        };
+
+        if (!res.ok) {
+          addToast(data.error ?? "Import failed", "error");
+          return;
+        }
+
+        const msg =
+          `Imported ${data.imported ?? 0} contact${(data.imported ?? 0) !== 1 ? "s" : ""}` +
+          (data.skipped ? `, skipped ${data.skipped}` : "") +
+          (data.truncated ? " (first 500 rows only)" : "");
+        addToast(msg, "success");
+
+        if (data.errors?.length) {
+          console.warn("[import] Row errors:", data.errors);
+        }
+      } catch {
+        addToast("Import failed — check your CSV and try again", "error");
+      } finally {
+        setImporting(false);
+        // Reset file input so the same file can be re-selected
+        if (importInputRef.current) importInputRef.current.value = "";
+      }
+    },
+    [addToast],
+  );
+
   const handleSignOut = useCallback(async () => {
     if (!isSupabaseConfigured()) {
       addToast("Connect Supabase to use sign-out", "info");
@@ -122,6 +174,19 @@ export function MeScreen() {
 
   return (
     <div className="flex flex-col">
+      {/* Hidden file input for CSV import */}
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        aria-hidden="true"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleImport(file);
+        }}
+      />
+
       <StatusBar />
 
       {/* Profile card */}
@@ -148,10 +213,14 @@ export function MeScreen() {
           const isLast = index === MENU_ITEMS.length - 1;
 
           const isExportItem = item.label === "Export Contacts";
+          const isImportItem = item.label === "Import Contacts";
+          const isItemLoading = (isExportItem && exporting) || (isImportItem && importing);
 
           const handleClick = () => {
             if (isExportItem) {
               setShowExportChoice((v) => !v);
+            } else if (isImportItem) {
+              importInputRef.current?.click();
             } else {
               addToast(`${item.label} — coming soon`, "info");
             }
@@ -160,11 +229,11 @@ export function MeScreen() {
           return (
             <div key={item.label} className={isLast ? "" : "border-b border-border-light"}>
               <button
-                disabled={isExportItem && exporting}
+                disabled={isItemLoading}
                 className="w-full flex items-center gap-3 py-4 px-5 text-left disabled:opacity-50"
                 onClick={handleClick}
               >
-                {isExportItem && exporting ? (
+                {isItemLoading ? (
                   <Loader2 className="w-5 h-5 text-fg-muted shrink-0 animate-spin" />
                 ) : (
                   <Icon className="w-5 h-5 text-fg-muted shrink-0" />
@@ -172,7 +241,13 @@ export function MeScreen() {
                 <div className="flex-1 min-w-0">
                   <p className="text-fg-primary text-sm font-medium">{item.label}</p>
                   <p className="text-fg-muted text-xs">
-                    {isExportItem ? "Choose CSV or JSON" : item.sublabel}
+                    {isExportItem
+                      ? "Choose CSV or JSON"
+                      : isImportItem
+                      ? importing
+                        ? "Importing..."
+                        : "Upload a .csv file"
+                      : item.sublabel}
                   </p>
                 </div>
                 <ChevronRight
