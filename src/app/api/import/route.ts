@@ -274,10 +274,16 @@ export async function POST(request: NextRequest) {
       const keyTopics = row["key_topics"] ? parseArray(row["key_topics"]) : [];
       if (keyTopics.length) contactInsert["key_topics"] = keyTopics;
 
-      // Create contact
+      // Create contact.
+      // contactInsert is built dynamically from CSV columns; owner_id + name are always
+      // present (validated above). Supabase's typed insert rejects Record<string,unknown>
+      // even when all required fields are populated — cast is safe here.
+      const contactPayload = contactInsert as Parameters<
+        ReturnType<typeof supabase.from<"contacts">>["insert"]
+      >[0];
       const { data: contact, error: contactError } = await supabase
         .from("contacts")
-        .insert(contactInsert)
+        .insert(contactPayload)
         .select("id")
         .single();
 
